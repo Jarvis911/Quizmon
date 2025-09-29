@@ -13,10 +13,10 @@ RUN npm install
 COPY . .
 
 # Build Prisma Client
-RUN npx prisma generate
+# RUN npx prisma generate
 
 # Expose
-EXPOSE 3000
+EXPOSE 5000
 
 # Command to run our application
 CMD ["node", "./src/server.js"]
