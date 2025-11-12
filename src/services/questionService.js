@@ -1,51 +1,5 @@
 import prisma from "../prismaClient.js";
 
-// const createQuestionMedia = async (mediaData) => {
-//   try {
-//     const { type, url, startTime, duration, questionId } = mediaData;
-
-//     const questionMedia = await prisma.questionMedia.create({
-//       data: {
-//         type,
-//         url,
-//         startTime,
-//         duration,
-//         questionId,
-//       },
-//     });
-
-//     return questionMedia;
-//   } catch (err) {
-//     throw err;
-//   }
-// };
-
-export const getRetrieveQuestion = async (questionId) => {
-  try {
-    const question = await prisma.question.findMany({
-      where: {
-        id: Number(questionId),
-      },
-      include: {
-        button: true,
-        checkbox: true,
-        reorder: true,
-        range: true,
-        typeAnswer: true,
-        location: true,
-        media: true,
-        options: true,
-        quiz: {
-          select: { id: true, title: true },
-        },
-    }});
-
-    return question;
-  } catch (err) {
-    throw err;
-  }
-}
-
 export const createQuestion = async (questionData) => {
   try {
     const {
