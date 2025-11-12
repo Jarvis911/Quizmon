@@ -1,16 +1,16 @@
-import {
-  getCategory as getCategoryService,
-  getQuizByCate as getQuizByCateService,
-  createCategory as createCategoryService,
-} from "../services/categoryService.js";
+import prisma from "../prismaClient.js";
 
 export const createCategory = async (req, res) => {
   const { name } = req.body;
 
   try {
-    const data = await createCategoryService(name);
+    const newCategory = await prisma.quizCategory.create({
+      data: {
+        name
+      },
+    });
 
-    return res.status(201).json(data);
+    return res.status(201).json(newCategory);
   } catch (err) {
     return res.status(400).json({ message: err.message });
   }
@@ -18,9 +18,9 @@ export const createCategory = async (req, res) => {
 
 export const getCategory = async (req, res) => {
   try {
-    const data = await getCategoryService();
+    const categories = await prisma.quizCategory.findMany();
 
-    return res.status(200).json(data);
+    return res.status(200).json(categories);
   } catch (err) {
     return res.status(400).json({ message: err.message });
   }
@@ -29,8 +29,20 @@ export const getCategory = async (req, res) => {
 export const getQuizByCate = async (req, res) => {
   try {
     const { id } = req.params;
-    const data = await getQuizByCateService(id);
-    return res.status(200).json(data);
+
+    const quizzes = await prisma.quiz.findMany({
+      where: {
+        categoryId: Number(id),
+        isPublic: true
+      },
+      include: {
+        creator: {
+            select: {id: true, username: true}
+        }
+      }
+    })
+
+    return res.status(200).json(quizzes);
   } catch (err) {
     return res.status(400).json({ message: err.message });
   }

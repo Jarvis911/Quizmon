@@ -1,9 +1,3 @@
-import {
-  createQuiz as createQuizService,
-  getQuiz as getQuizService,
-  getQuestionByQuiz as getQuestionByQuizService,
-  getRetrieveQuiz as getRetrieveQuizService
-} from "../services/quizService.js";
 import cloudinary from "../utils/cloudinary.js";
 import prisma from "../prismaClient.js";
 
@@ -27,13 +21,23 @@ export const createQuiz = async (req, res) => {
       imageUrl = uploadResult.secure_url;
     }
 
-    const data = await createQuizService({
-      title,
-      description,
-      image: imageUrl,
-      isPublic,
-      creatorId: req.userId,
-      categoryId,
+    const data = await prisma.quiz.create({
+      data: {
+        title,
+        description,
+        image,
+        isPublic: !!isPublic,
+        creatorId: Number(creatorId),
+        categoryId: Number(categoryId)
+      },
+      include: {
+        creator: {
+            select: {id: true, username: true}
+        },
+        category: {
+            select: {id: true, name:true}
+        }
+      }
     });
     
     return res.status(201).json(data);
@@ -44,7 +48,20 @@ export const createQuiz = async (req, res) => {
 
 export const getQuiz = async (req, res) => {
   try {
-    const data = await getQuizService(req.userId);
+    const data = await prisma.quiz.findMany({
+      where: {
+        creatorId: Number(req.userId),
+      },
+      include: {
+        creator: {
+            select: {id: true, username: true}
+        },
+        category: {
+            select: {id: true, name:true}
+        }
+      }
+    });
+
     return res.status(200).json(data);
   } catch (err) {
     return res.status(400).json({ message: err.message });
@@ -54,20 +71,58 @@ export const getQuiz = async (req, res) => {
 export const getRetrieveQuiz = async (req, res) => {
   const { id } = req.params;
   try {
-    const data = await getRetrieveQuizService(id);
+    const data = await prisma.quiz.findUnique({
+      where: {
+        id: Number(id),
+      },
+      include: {
+        questions: {
+          include: {
+            button: true,
+            checkbox: true,
+            reorder: true,
+            range: true,
+            typeAnswer: true,
+            location: true,
+            media: true,
+            options: true,
+          },
+        },
+        category: {
+          select: {id: true, name:true}
+        },
+        creator: {
+            select: {id: true, username: true}
+        }
+      }
+    });
+
     return res.status(200).json(data);
   } catch (err) {
     return res.status(400).json({ message: err.message });
   }
 };
 
-
-
 export const getQuestionByQuiz = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const data = await getQuestionByQuizService(id);
+    const data = await prisma.question.findMany({
+      where: {
+        quizId: Number(id),
+      },
+      include: {
+        button: true,
+        checkbox: true,
+        reorder: true,
+        range: true,
+        typeAnswer: true,
+        location: true,
+        media: true,
+        options: true
+      }
+    });
+
     return res.status(200).json(data);
   } catch (err) {
     return res.status(400).json({ message: err.message });
