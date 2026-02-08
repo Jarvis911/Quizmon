@@ -1,22 +1,24 @@
-import express from "express";
-import authMiddleware from "../middleware/authMiddleware.js";
-import logMiddleware from "../middleware/logMiddleware.js"
-import upload from "../middleware/uploadMiddleware.js";
-import { createButtonQuestion,
-        updateButtonQuestion,
-        createCheckboxQuestion,
-        updateCheckboxQuestion, 
-        createRangeQuestion,
-        updateRangeQuestion,
-        createReorderQuestion,
-        updateReorderQuestion,
-        createLocationQuestion,
-        updateLocationQuestion, 
-        createTypeAnswerQuestion,
-        updateTypeAnswerQuestion,
-        getRetrieveQuestion } from "../controllers/questionController.js";
+import { Router } from 'express';
+import authMiddleware from '../middleware/authMiddleware.js';
+import logMiddleware from '../middleware/logMiddleware.js';
+import upload from '../middleware/uploadMiddleware.js';
+import {
+    createButtonQuestion,
+    updateButtonQuestion,
+    createCheckboxQuestion,
+    updateCheckboxQuestion,
+    createRangeQuestion,
+    updateRangeQuestion,
+    createReorderQuestion,
+    updateReorderQuestion,
+    createLocationQuestion,
+    updateLocationQuestion,
+    createTypeAnswerQuestion,
+    updateTypeAnswerQuestion,
+    getRetrieveQuestion,
+} from '../controllers/questionController.js';
 
-const router = express.Router();
+const router: Router = Router();
 
 router.post('/buttons', authMiddleware, logMiddleware, upload.array('files', 5), createButtonQuestion);
 router.put('/buttons/:id', authMiddleware, upload.array('files', 5), updateButtonQuestion);
@@ -37,6 +39,5 @@ router.post('/typeanswer', authMiddleware, logMiddleware, upload.array('files', 
 router.put('/typeanswer/:id', authMiddleware, logMiddleware, upload.array('files', 5), updateTypeAnswerQuestion);
 
 router.get('/:id', getRetrieveQuestion);
-
 
 export default router;
