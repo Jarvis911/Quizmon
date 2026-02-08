@@ -2,7 +2,7 @@ import passport from 'passport';
 import { Strategy as JwtStrategy, ExtractJwt, StrategyOptions } from 'passport-jwt';
 import { Strategy as LocalStrategy } from 'passport-local';
 import bcrypt from 'bcryptjs';
-import prisma from '../prismaClient.ts';
+import prisma from '../prismaClient.js';
 import { JwtPayload } from '../types/index.js';
 
 const jwtOptions: StrategyOptions = {

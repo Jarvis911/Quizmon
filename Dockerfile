@@ -1,5 +1,5 @@
 # Use an official node.js runtime as a parent image
-FROM node:24-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
@@ -19,4 +19,4 @@ COPY . .
 EXPOSE 5000
 
 # Command to run our application
-CMD ["node", "./src/server.js"]
+CMD ["npm", "run", "dev"]

@@ -14,7 +14,8 @@ services:
     # just like a log
     volumes:
       - .:/app
-  
+      - /app/node_modules
+
   db:
     image: postgres:13-alpine
     container_name: postgres-db
