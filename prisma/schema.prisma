@@ -14,58 +14,63 @@ datasource db {
 }
 
 model User {
-  id            Int     @id @default(autoincrement())
-  username      String  @unique
-  password      String
+  id       Int     @id @default(autoincrement())
+  username String? @unique
+  email    String  @unique
+  password String?
+  googleId String? @unique
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  quizzes       Quiz[]
-  quizRatings   QuizRating[]
-  matchs        Match[]
-  matchResults  MatchResult[]
+  quizzes           Quiz[]
+  quizRatings       QuizRating[]
+  matchs            Match[]
+  matchResults      MatchResult[]
+  matchParticipants MatchParticipant[]
+  aiGenerationJobs  AIGenerationJob[]
 }
 
 model QuizCategory {
-  id            Int     @id @default(autoincrement())
-  name          String
+  id   Int    @id @default(autoincrement())
+  name String
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  quizzes       Quiz[]
+  quizzes Quiz[]
 }
 
 model Quiz {
-  id            Int     @id @default(autoincrement())
-  title         String
-  description   String
-  image         String?
-  isPublic      Boolean @default(false)
+  id          Int     @id @default(autoincrement())
+  title       String
+  description String
+  image       String?
+  isPublic    Boolean @default(false)
 
-  creatorId     Int
-  creator       User    @relation(fields: [creatorId], references: [id])
-  categoryId    Int
-  category      QuizCategory  @relation(fields: [categoryId], references: [id])
+  creatorId  Int
+  creator    User         @relation(fields: [creatorId], references: [id])
+  categoryId Int
+  category   QuizCategory @relation(fields: [categoryId], references: [id])
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  questions     Question[]
-  quizRatings   QuizRating[]
-  matchs        Match[]
+  questions        Question[]
+  quizRatings      QuizRating[]
+  matchs           Match[]
+  aiGenerationJobs AIGenerationJob[]
 }
 
 model QuizRating {
-  id            Int     @id @default(autoincrement())
-  rating        Int
-  text          String?
+  id     Int     @id @default(autoincrement())
+  rating Int
+  text   String?
 
-  userId        Int
-  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  quizId        Int
-  quiz          Quiz    @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId Int
+  quiz   Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([quizId])
@@ -77,17 +82,17 @@ enum MediaType {
 }
 
 model QuestionMedia {
-  id            Int         @id() @default(autoincrement())
-  type          MediaType
-  url           String
-  startTime     Int?
-  duration      Int?
+  id        Int       @id() @default(autoincrement())
+  type      MediaType
+  url       String
+  startTime Int?
+  duration  Int?
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  questionId    Int
-  question      Question?    @relation(fields: [questionId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questionId Int
+  question   Question? @relation(fields: [questionId], references: [id])
 }
 
 enum QuestionType {
@@ -96,110 +101,237 @@ enum QuestionType {
   RANGE
   REORDER
   TYPEANSWER
-  LOCATION 
+  LOCATION
 }
 
 model Question {
-  id            Int     @id @default(autoincrement())
-  text          String
-  type          QuestionType
+  id   Int          @id @default(autoincrement())
+  text String
+  type QuestionType
 
-  button        QuestionButton?
-  checkbox      QuestionCheckbox?
-  reorder       QuestionReorder?
-  range         QuestionRange?
-  typeAnswer    QuestionTypeAnswer?
-  location      QuestionLocation?
+  button     QuestionButton?
+  checkbox   QuestionCheckbox?
+  reorder    QuestionReorder?
+  range      QuestionRange?
+  typeAnswer QuestionTypeAnswer?
+  location   QuestionLocation?
 
-  quizId        Int
-  quiz          Quiz    @relation(fields: [quizId], references: [id])
+  quizId Int
+  quiz   Quiz @relation(fields: [quizId], references: [id])
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  options       QuestionOption[]
-  media         QuestionMedia[]
+  options         QuestionOption[]
+  media           QuestionMedia[]
+  matchAnswers    MatchAnswer[]
+  aiGeneratedFrom AIGeneratedQuestion?
 }
 
 model QuestionButton {
-  id            Int         @id 
-  question      Question    @relation(fields: [id], references: [id])
+  id       Int      @id
+  question Question @relation(fields: [id], references: [id])
 }
 
 model QuestionCheckbox {
-  id            Int         @id
-  question      Question    @relation(fields: [id], references: [id])
+  id       Int      @id
+  question Question @relation(fields: [id], references: [id])
 }
 
 model QuestionOption {
-  id            Int         @id @default(autoincrement())
-  text          String
-  isCorrect     Boolean?    @default(false)    // Button, Checkbox
-  order         Int?                           // Reorder
+  id        Int      @id @default(autoincrement())
+  text      String
+  isCorrect Boolean? @default(false) // Button, Checkbox
+  order     Int? // Reorder
 
-  questionId    Int
-  question      Question    @relation(fields: [questionId], references: [id])
+  questionId Int
+  question   Question @relation(fields: [questionId], references: [id])
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([questionId])
 }
 
 model QuestionReorder {
-  id            Int         @id
-  question      Question    @relation(fields: [id], references: [id])
+  id       Int      @id
+  question Question @relation(fields: [id], references: [id])
 }
 
-model QuestionRange   {
-  id            Int         @id
-  minValue      Int
-  maxValue      Int
-  correctValue  Int       
-  question      Question    @relation(fields: [id], references: [id])
+model QuestionRange {
+  id           Int      @id
+  minValue     Int
+  maxValue     Int
+  correctValue Int
+  question     Question @relation(fields: [id], references: [id])
 }
 
 model QuestionTypeAnswer {
-  id            Int         @id
+  id            Int      @id
   correctAnswer String
-  question      Question    @relation(fields: [id], references: [id])
+  question      Question @relation(fields: [id], references: [id])
 }
 
-model QuestionLocation    {
-  id                Int         @id
-  correctLatitude   Float
-  correctLongitude  Float
-  question          Question    @relation(fields: [id], references: [id])
+model QuestionLocation {
+  id               Int      @id
+  correctLatitude  Float
+  correctLongitude Float
+  question         Question @relation(fields: [id], references: [id])
 }
 
 model Match {
-  id              Int         @id @default(autoincrement())
-  startTime       DateTime?
-  endTime         DateTime?
+  id        Int       @id @default(autoincrement())
+  startTime DateTime?
+  endTime   DateTime?
 
-  quizId          Int
-  quiz            Quiz        @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  hostId          Int
-  host            User        @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  // Host configuration
+  timePerQuestion Int? // seconds per question (null = unlimited)
+  backgroundUrl   String? // custom background image/video URL
+  musicUrl        String? // background music URL
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  quizId Int
+  quiz   Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  hostId Int
+  host   User @relation(fields: [hostId], references: [id], onDelete: Cascade)
 
-  matchResults    MatchResult[] 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants MatchParticipant[]
+  matchResults MatchResult[]
 }
 
 model MatchResult {
-  id              Int         @id @default(autoincrement())
-  score           Int?
+  id    Int  @id @default(autoincrement())
+  score Int?
 
-  userId          Int
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  matchId         Int
-  match         Match         @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  userId  Int
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matchId Int
+  match   Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
 
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([matchId])
+}
+
+// ==================== NEW MODELS ====================
+
+// Match Participant - User customization per match
+model MatchParticipant {
+  id Int @id @default(autoincrement())
+
+  // User customization for this match
+  displayName String
+  avatarUrl   String?
+
+  matchId Int
+  match   Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  userId  Int? // nullable for guest users
+  user    User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  joinedAt DateTime @default(now())
+
+  answers MatchAnswer[]
+
+  @@unique([matchId, userId])
+  @@index([matchId])
+  @@index([userId])
+}
+
+// Match Answer - Detailed answer tracking for reports
+model MatchAnswer {
+  id Int @id @default(autoincrement())
+
+  questionId Int
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  participantId Int
+  participant   MatchParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  // Answer data
+  answerData Json // stores the user's answer (flexible for different question types)
+  isCorrect  Boolean
+  score      Int // points earned for this answer
+  timeTaken  Int? // milliseconds to answer
+
+  answeredAt DateTime @default(now())
+
+  @@unique([participantId, questionId])
+  @@index([participantId])
+  @@index([questionId])
+}
+
+// ==================== AI GENERATION MODELS ====================
+
+enum AIGenerationStatus {
+  PENDING // Job created, waiting to process
+  PROCESSING // AI is generating questions
+  COMPLETED // Generation complete, awaiting review
+  APPROVED // User approved all questions
+  FAILED // Generation failed
+}
+
+enum AIQuestionStatus {
+  PENDING // Awaiting user review
+  APPROVED // User approved this question
+  REJECTED // User rejected, needs regeneration
+  REGENERATING // AI is regenerating this question
+}
+
+// AI Generation Job - Tracks AI question generation jobs
+model AIGenerationJob {
+  id Int @id @default(autoincrement())
+
+  // Input configuration
+  instruction  String? // text instruction from user
+  pdfUrl       String? // uploaded PDF URL
+  targetQuizId Int? // if adding to existing quiz
+  targetQuiz   Quiz?   @relation(fields: [targetQuizId], references: [id], onDelete: SetNull)
+
+  // Job metadata
+  status        AIGenerationStatus @default(PENDING)
+  questionCount Int                @default(10)
+  errorMessage  String?
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  generatedQuestions AIGeneratedQuestion[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+// AI Generated Question - Individual AI-generated questions pending review
+model AIGeneratedQuestion {
+  id Int @id @default(autoincrement())
+
+  jobId Int
+  job   AIGenerationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  // Generated content
+  questionText String
+  questionType QuestionType
+  optionsData  Json // stores options, correct answers, etc.
+
+  // Review status
+  status            AIQuestionStatus @default(PENDING)
+  userFeedback      String? // user's feedback for regeneration
+  regenerationCount Int              @default(0)
+
+  // If approved and added to quiz
+  finalQuestionId Int?      @unique
+  finalQuestion   Question? @relation(fields: [finalQuestionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([jobId])
+  @@index([status])
 }

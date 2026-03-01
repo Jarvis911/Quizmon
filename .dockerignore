@@ -1,0 +1,15 @@
+# Never bake local env secrets into the image
+# docker-compose.yaml supplies DATABASE_URL and other vars at runtime
+.env
+.env.*
+
+# Dev/build artifacts
+node_modules
+dist
+npm-debug.log*
+
+# Editor & OS
+.vscode
+.idea
+*.DS_Store
+Thumbs.db

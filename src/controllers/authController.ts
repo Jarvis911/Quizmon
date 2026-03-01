@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import passport from '../config/passport.js';
 
 export const register = async (req: Request, res: Response): Promise<void> => {
-    const { username, password } = req.body as { username: string; password: string };
+    const { username, email, password } = req.body as { username?: string; email: string; password: string };
 
     try {
         const hashedPassword = bcrypt.hashSync(password, 8);
@@ -13,6 +13,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         const user = await prisma.user.create({
             data: {
                 username,
+                email,
                 password: hashedPassword,
             },
         });
@@ -46,5 +47,31 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
         const { password: _, ...userWithoutPassword } = typedUser;
         res.json({ user: userWithoutPassword, token });
+    })(req, res);
+};
+
+export const googleLogin = (req: Request, res: Response): void => {
+    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res);
+};
+
+export const googleCallback = (req: Request, res: Response): void => {
+    passport.authenticate('google', { session: false }, (err: Error | null, user: Express.User | false) => {
+        if (err || !user) {
+            return res.redirect('http://localhost:5173/login?error=Google auth failed');
+        }
+
+        const typedUser = user as { id: number; username: string; email: string };
+        const token = jwt.sign({ id: typedUser.id }, process.env.JWT_SECRET as string, {
+            expiresIn: '24h',
+        });
+
+        // Redirect back to frontend with token and user data
+        // Note: In production, use a more secure way to pass the token (e.g., hidden form or temporary session)
+        const userData = encodeURIComponent(JSON.stringify({
+            id: typedUser.id,
+            username: typedUser.username,
+            email: typedUser.email
+        }));
+        res.redirect(`http://localhost:5173/login?token=${token}&user=${userData}`);
     })(req, res);
 };

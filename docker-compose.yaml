@@ -3,18 +3,24 @@ services:
     build: .
     container_name: quizmon-app
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/quizmon-db
-      - JWT_SECRET=fc033596847e21fb145210ee84cf98c2
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - REDIS_URL=redis://redis-store:6379
       - NODE_ENV=development
       - PORT=5000
     ports:
       - "5000:5000"
     depends_on:
-      - db
-    # just like a log
-    volumes:
-      - .:/app
-  
+      db:
+        condition: service_started
+      redis-store:
+        condition: service_started
+    networks:
+      - quizmon-network
+
   db:
     image: postgres:13-alpine
     container_name: postgres-db
@@ -26,7 +32,24 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    networks:
+      - quizmon-network
 
-# Initialize the folder where docker will contain postgres data
+  redis-store:
+    image: redis:alpine
+    container_name: redis-store
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - quizmon-network
+
 volumes:
   postgres-data:
+  redis-data:
+
+
+networks:
+  quizmon-network:
+    driver: bridge

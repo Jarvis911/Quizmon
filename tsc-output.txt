@@ -1,2 +1,0 @@
-src/server.ts(241,17): error TS2322: Type 'boolean | undefined' is not assignable to type 'boolean'.
-  Type 'undefined' is not assignable to type 'boolean'.

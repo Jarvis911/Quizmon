@@ -1,0 +1,103 @@
+import prisma from '../prismaClient.js';
+// Join match as participant
+export const createParticipant = async (req, res) => {
+    try {
+        const { matchId } = req.params;
+        const { displayName, avatarUrl } = req.body;
+        const userId = req.userId;
+        const participant = await prisma.matchParticipant.create({
+            data: {
+                matchId: Number(matchId),
+                userId: userId ? Number(userId) : null,
+                displayName,
+                avatarUrl: avatarUrl || null,
+            },
+            include: {
+                user: { select: { id: true, username: true } },
+            },
+        });
+        res.status(201).json(participant);
+    }
+    catch (err) {
+        res.status(500).json(err);
+    }
+};
+// Get all participants in a match
+export const getParticipants = async (req, res) => {
+    try {
+        const { matchId } = req.params;
+        const participants = await prisma.matchParticipant.findMany({
+            where: { matchId: Number(matchId) },
+            include: {
+                user: { select: { id: true, username: true } },
+            },
+            orderBy: { joinedAt: 'asc' },
+        });
+        res.status(200).json(participants);
+    }
+    catch (err) {
+        res.status(500).json(err);
+    }
+};
+// Get single participant
+export const getParticipant = async (req, res) => {
+    try {
+        const { matchId, id } = req.params;
+        const participant = await prisma.matchParticipant.findFirst({
+            where: {
+                id: Number(id),
+                matchId: Number(matchId),
+            },
+            include: {
+                user: { select: { id: true, username: true } },
+                answers: {
+                    include: {
+                        question: { select: { id: true, text: true, type: true } },
+                    },
+                },
+            },
+        });
+        if (!participant) {
+            res.status(404).json({ message: 'Participant not found' });
+            return;
+        }
+        res.status(200).json(participant);
+    }
+    catch (err) {
+        res.status(500).json(err);
+    }
+};
+// Update participant (displayName, avatar)
+export const updateParticipant = async (req, res) => {
+    try {
+        const { matchId, id } = req.params;
+        const { displayName, avatarUrl } = req.body;
+        const participant = await prisma.matchParticipant.update({
+            where: { id: Number(id) },
+            data: {
+                displayName,
+                avatarUrl,
+            },
+            include: {
+                user: { select: { id: true, username: true } },
+            },
+        });
+        res.status(200).json(participant);
+    }
+    catch (err) {
+        res.status(500).json(err);
+    }
+};
+// Leave match (delete participant)
+export const deleteParticipant = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await prisma.matchParticipant.delete({
+            where: { id: Number(id) },
+        });
+        res.status(200).json({ message: 'Left match successfully' });
+    }
+    catch (err) {
+        res.status(500).json(err);
+    }
+};

@@ -3,20 +3,23 @@ FROM node:24-alpine
 
 WORKDIR /app
 
-# Copy package.js and package-lock.json to container, . is /app
-COPY package*.json . 
+# Copy package files to container
+COPY package*.json .
 
-# Install the dependency
-RUN npm install 
+# Install all dependencies (including devDependencies for build)
+RUN npm install
 
-# Copy the rest of the applications code
+# Copy the rest of the application code
 COPY . .
 
-# Build Prisma Client
-# RUN npx prisma generate
+# Generate Prisma Client
+RUN npx prisma generate
+
+# Compile TypeScript to JavaScript
+RUN npm run build
 
 # Expose
 EXPOSE 5000
 
-# Command to run our application
-CMD ["node", "./src/server.js"]
+# Command: sync schema then start the server
+CMD ["sh", "-c", "npx prisma db push && node dist/server.js"]

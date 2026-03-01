@@ -1,0 +1,14 @@
+import { Request, Response } from 'express';
+export declare const getRetrieveQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const createButtonQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const updateButtonQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const createCheckboxQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const updateCheckboxQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const createRangeQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const updateRangeQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const createReorderQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const updateReorderQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const createLocationQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const updateLocationQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const createTypeAnswerQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const updateTypeAnswerQuestion: (req: Request, res: Response) => Promise<void>;

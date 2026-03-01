@@ -1,8 +1,8 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "Quiz API",
-    "description": "API documentation for Quiz App",
+    "title": "Quizmon API",
+    "description": "REST API documentation for the Quizmon quiz platform. Supports quiz creation, match hosting, AI-powered question generation, and real-time gameplay via Socket.IO.",
     "version": "1.0.0"
   },
   "host": "localhost:5000",
@@ -10,22 +10,83 @@
   "schemes": [
     "http"
   ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "User registration and login"
+    },
+    {
+      "name": "User",
+      "description": "User statistics and profile data"
+    },
+    {
+      "name": "Quiz",
+      "description": "Quiz CRUD — create, list, and retrieve quizzes with their questions"
+    },
+    {
+      "name": "Category",
+      "description": "Quiz category management"
+    },
+    {
+      "name": "Question",
+      "description": "Question CRUD supporting 6 types: buttons (MCQ), checkboxes (multi-select), range (slider), reorder (drag), location (map), type-answer (text)"
+    },
+    {
+      "name": "Match",
+      "description": "Match session management — create, update, and delete live quiz matches"
+    },
+    {
+      "name": "Participant",
+      "description": "Match participant management — join, list, and leave a match"
+    },
+    {
+      "name": "Answer",
+      "description": "Answer submission and match result reporting"
+    },
+    {
+      "name": "Rating",
+      "description": "Quiz rating — submit a star rating and text review"
+    },
+    {
+      "name": "AI Generation",
+      "description": "AI-powered question generation jobs — create, track, approve/reject, and finalize generated questions"
+    }
+  ],
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "Authorization",
+      "description": "JWT Bearer token. Format: `Bearer <token>`"
+    }
+  },
   "paths": {
     "/auth/register": {
       "post": {
-        "description": "",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register a new user",
+        "description": "Creates a new user account and returns the user object (without password) and a JWT token.",
         "parameters": [
           {
             "name": "body",
             "in": "body",
+            "required": true,
             "schema": {
               "type": "object",
+              "required": [
+                "username",
+                "password"
+              ],
               "properties": {
                 "username": {
-                  "example": "any"
+                  "type": "string",
+                  "example": "john_doe"
                 },
                 "password": {
-                  "example": "any"
+                  "type": "string",
+                  "example": "secret123"
                 }
               }
             }
@@ -33,29 +94,66 @@
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "User registered successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "username": {
+                      "type": "string",
+                      "example": "john_doe"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                },
+                "token": {
+                  "type": "string",
+                  "example": "eyJhbGci..."
+                }
+              }
+            }
           },
           "400": {
-            "description": "Bad Request"
+            "description": "Bad Request — username already taken or invalid input"
           }
         }
       }
     },
     "/auth/login": {
       "post": {
-        "description": "",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Login with credentials",
+        "description": "Authenticates a user using Passport Local strategy and returns a JWT token.",
         "parameters": [
           {
             "name": "body",
             "in": "body",
+            "required": true,
             "schema": {
               "type": "object",
+              "required": [
+                "username",
+                "password"
+              ],
               "properties": {
                 "username": {
-                  "example": "any"
+                  "type": "string",
+                  "example": "john_doe"
                 },
                 "password": {
-                  "example": "any"
+                  "type": "string",
+                  "example": "secret123"
                 }
               }
             }
@@ -63,106 +161,394 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Login successful",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "username": {
+                      "type": "string",
+                      "example": "john_doe"
+                    }
+                  }
+                },
+                "token": {
+                  "type": "string",
+                  "example": "eyJhbGci..."
+                }
+              }
+            }
           },
-          "400": {
-            "description": "Bad Request"
+          "401": {
+            "description": "Unauthorized — invalid credentials"
+          },
+          "500": {
+            "description": "Internal Server Error — authentication error"
+          }
+        }
+      }
+    },
+    "/user/statistics": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Get current user's match statistics",
+        "description": "Returns aggregated stats for the authenticated user: total matches played, unique quizzes, rank breakdown, win rate, and recent match history. Supports filtering by `week` or `month` (default).",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "week",
+              "month"
+            ],
+            "description": "Time period filter. Defaults to `month`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Statistics returned successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "totalMatches": {
+                  "type": "integer",
+                  "example": 12
+                },
+                "totalQuizzes": {
+                  "type": "integer",
+                  "example": 5
+                },
+                "rankCounts": {
+                  "type": "object",
+                  "example": {
+                    "1": 3,
+                    "2": 4,
+                    "3": 5
+                  },
+                  "description": "Map of rank → number of times user achieved that rank"
+                },
+                "winRate": {
+                  "type": "number",
+                  "format": "float",
+                  "example": 0.25
+                },
+                "recentMatches": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "matchId": {
+                        "type": "integer"
+                      },
+                      "quizId": {
+                        "type": "integer"
+                      },
+                      "quizName": {
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "score": {
+                        "type": "number"
+                      },
+                      "rank": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT"
+          },
+          "500": {
+            "description": "Internal Server Error"
           }
         }
       }
     },
     "/quiz/": {
       "post": {
-        "description": "",
+        "tags": [
+          "Quiz"
+        ],
+        "summary": "Create a new quiz",
+        "description": "Creates a quiz for the authenticated user. Accepts an optional image file upload (multipart/form-data).",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "consumes": [
+          "multipart/form-data"
+        ],
         "parameters": [
           {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "title": {
-                  "example": "any"
-                },
-                "description": {
-                  "example": "any"
-                },
-                "isPublic": {
-                  "example": "any"
-                },
-                "categoryId": {
-                  "example": "any"
-                }
-              }
-            }
+            "name": "title",
+            "in": "formData",
+            "required": true,
+            "type": "string",
+            "example": "World Capitals Quiz"
+          },
+          {
+            "name": "description",
+            "in": "formData",
+            "required": false,
+            "type": "string",
+            "example": "Test your geography knowledge"
+          },
+          {
+            "name": "isPublic",
+            "in": "formData",
+            "required": false,
+            "type": "boolean",
+            "example": true
+          },
+          {
+            "name": "categoryId",
+            "in": "formData",
+            "required": true,
+            "type": "integer",
+            "example": 2
+          },
+          {
+            "name": "file",
+            "in": "formData",
+            "required": false,
+            "type": "file",
+            "description": "Cover image for the quiz (uploaded to Cloudinary)"
           }
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Quiz created successfully"
           },
           "400": {
             "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
         }
       },
       "get": {
-        "description": "",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/quiz/{id}/question": {
-      "get": {
-        "description": "",
-        "parameters": [
+        "tags": [
+          "Quiz"
+        ],
+        "summary": "Get all quizzes for the current user",
+        "description": "Returns a list of quizzes created by the authenticated user, including creator and category info.",
+        "security": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
+            "BearerAuth": []
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "List of quizzes returned"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
         }
       }
     },
     "/quiz/{id}": {
       "get": {
-        "description": "",
+        "tags": [
+          "Quiz"
+        ],
+        "summary": "Get a single quiz with full details",
+        "description": "Retrieves a quiz by ID, including all questions and their sub-type data (buttons, checkboxes, range, etc.).",
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "integer",
+            "example": 1
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Quiz returned successfully"
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      }
+    },
+    "/quiz/{id}/question": {
+      "get": {
+        "tags": [
+          "Quiz"
+        ],
+        "summary": "Get all questions for a quiz",
+        "description": "Returns all questions belonging to the given quiz, each with its type-specific data.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Questions returned successfully"
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      }
+    },
+    "/quiz/{id}/rated": {
+      "get": {
+        "tags": [
+          "Quiz"
+        ],
+        "summary": "Check if current user has rated a quiz",
+        "description": "Returns `{ rated: true/false }` indicating whether the authenticated user has already submitted a rating for this quiz.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rating check result",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "rated": {
+                  "type": "boolean",
+                  "example": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/quiz/{id}/rating": {
+      "get": {
+        "tags": [
+          "Quiz"
+        ],
+        "summary": "Get ratings for a quiz",
+        "description": "Returns all ratings for the quiz, along with the aggregate average score and total count.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ratings returned successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "average": {
+                  "type": "number",
+                  "example": 4.2
+                },
+                "count": {
+                  "type": "integer",
+                  "example": 15
+                },
+                "ratings": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer"
+                      },
+                      "userId": {
+                        "type": "integer"
+                      },
+                      "rating": {
+                        "type": "integer"
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
           }
         }
       }
     },
     "/category/": {
       "post": {
-        "description": "",
+        "tags": [
+          "Category"
+        ],
+        "summary": "Create a quiz category",
+        "description": "Creates a new quiz category. No authentication required.",
         "parameters": [
           {
             "name": "body",
             "in": "body",
+            "required": true,
             "schema": {
               "type": "object",
+              "required": [
+                "name"
+              ],
               "properties": {
                 "name": {
-                  "example": "any"
+                  "type": "string",
+                  "example": "Science"
                 }
               }
             }
@@ -170,7 +556,7 @@
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Category created"
           },
           "400": {
             "description": "Bad Request"
@@ -178,10 +564,14 @@
         }
       },
       "get": {
-        "description": "",
+        "tags": [
+          "Category"
+        ],
+        "summary": "List all categories",
+        "description": "Returns all quiz categories available in the system.",
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Categories returned successfully"
           },
           "400": {
             "description": "Bad Request"
@@ -189,45 +579,170 @@
         }
       }
     },
-    "/category/quiz": {
+    "/category/{id}/quiz": {
       "get": {
-        "description": "",
+        "tags": [
+          "Category"
+        ],
+        "summary": "Get public quizzes by category",
+        "description": "Returns all public quizzes that belong to the specified category.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 2
+          }
+        ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Quizzes returned successfully"
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      }
+    },
+    "/question/{id}": {
+      "get": {
+        "tags": [
+          "Question"
+        ],
+        "summary": "Get a single question by ID",
+        "description": "Retrieves a question and all its type-specific data by question ID.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 10
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Question returned"
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       }
     },
     "/question/buttons": {
       "post": {
-        "description": "",
+        "tags": [
+          "Question"
+        ],
+        "summary": "Create a multiple-choice (buttons) question",
+        "description": "Creates an MCQ question with selectable button options. Accepts optional media file uploads.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "consumes": [
+          "multipart/form-data"
+        ],
         "parameters": [
           {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "quizId": {
-                  "example": "any"
-                },
-                "text": {
-                  "example": "any"
-                },
-                "options": {
-                  "example": "any"
-                },
-                "videos": {
-                  "example": "any"
-                }
-              }
+            "name": "quizId",
+            "in": "formData",
+            "required": true,
+            "type": "integer",
+            "example": 1
+          },
+          {
+            "name": "text",
+            "in": "formData",
+            "required": true,
+            "type": "string",
+            "example": "What is the capital of France?"
+          },
+          {
+            "name": "options",
+            "in": "formData",
+            "required": true,
+            "type": "string",
+            "description": "JSON array of options: [{text, isCorrect, order}]"
+          },
+          {
+            "name": "files",
+            "in": "formData",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "file"
             }
           }
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Question created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/question/buttons/{id}": {
+      "put": {
+        "tags": [
+          "Question"
+        ],
+        "summary": "Update a buttons question",
+        "description": "Updates an existing multiple-choice (buttons) question. Accepts optional media file uploads.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 5
+          },
+          {
+            "name": "text",
+            "in": "formData",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "options",
+            "in": "formData",
+            "required": false,
+            "type": "string",
+            "description": "JSON array of options"
+          },
+          {
+            "name": "files",
+            "in": "formData",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "file"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Question updated"
+          },
+          "401": {
+            "description": "Unauthorized"
           },
           "500": {
             "description": "Internal Server Error"
@@ -237,33 +752,114 @@
     },
     "/question/checkboxes": {
       "post": {
-        "description": "",
+        "tags": [
+          "Question"
+        ],
+        "summary": "Create a multi-select (checkboxes) question",
+        "description": "Creates a question where users can select multiple correct answers.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "consumes": [
+          "multipart/form-data"
+        ],
         "parameters": [
           {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "quizId": {
-                  "example": "any"
-                },
-                "text": {
-                  "example": "any"
-                },
-                "options": {
-                  "example": "any"
-                },
-                "videos": {
-                  "example": "any"
-                }
-              }
+            "name": "quizId",
+            "in": "formData",
+            "required": true,
+            "type": "integer",
+            "example": 1
+          },
+          {
+            "name": "text",
+            "in": "formData",
+            "required": true,
+            "type": "string",
+            "example": "Which of these are planets?"
+          },
+          {
+            "name": "options",
+            "in": "formData",
+            "required": true,
+            "type": "string",
+            "description": "JSON array of options: [{text, isCorrect, order}]"
+          },
+          {
+            "name": "files",
+            "in": "formData",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "file"
             }
           }
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Question created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/question/checkboxes/{id}": {
+      "put": {
+        "tags": [
+          "Question"
+        ],
+        "summary": "Update a checkboxes question",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 5
+          },
+          {
+            "name": "text",
+            "in": "formData",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "options",
+            "in": "formData",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "files",
+            "in": "formData",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "file"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Question updated"
+          },
+          "401": {
+            "description": "Unauthorized"
           },
           "500": {
             "description": "Internal Server Error"
@@ -273,39 +869,140 @@
     },
     "/question/range": {
       "post": {
-        "description": "",
+        "tags": [
+          "Question"
+        ],
+        "summary": "Create a range (slider) question",
+        "description": "Creates a question where users pick a numeric answer along a slider.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "consumes": [
+          "multipart/form-data"
+        ],
         "parameters": [
           {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "quizId": {
-                  "example": "any"
-                },
-                "text": {
-                  "example": "any"
-                },
-                "minValue": {
-                  "example": "any"
-                },
-                "maxValue": {
-                  "example": "any"
-                },
-                "correctValue": {
-                  "example": "any"
-                },
-                "videos": {
-                  "example": "any"
-                }
-              }
+            "name": "quizId",
+            "in": "formData",
+            "required": true,
+            "type": "integer",
+            "example": 1
+          },
+          {
+            "name": "text",
+            "in": "formData",
+            "required": true,
+            "type": "string",
+            "example": "How old is the Eiffel Tower?"
+          },
+          {
+            "name": "minValue",
+            "in": "formData",
+            "required": true,
+            "type": "number",
+            "example": 0
+          },
+          {
+            "name": "maxValue",
+            "in": "formData",
+            "required": true,
+            "type": "number",
+            "example": 200
+          },
+          {
+            "name": "correctValue",
+            "in": "formData",
+            "required": true,
+            "type": "number",
+            "example": 135
+          },
+          {
+            "name": "files",
+            "in": "formData",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "file"
             }
           }
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Question created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/question/range/{id}": {
+      "put": {
+        "tags": [
+          "Question"
+        ],
+        "summary": "Update a range question",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 5
+          },
+          {
+            "name": "text",
+            "in": "formData",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "minValue",
+            "in": "formData",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "name": "maxValue",
+            "in": "formData",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "name": "correctValue",
+            "in": "formData",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "name": "files",
+            "in": "formData",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "file"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Question updated"
+          },
+          "401": {
+            "description": "Unauthorized"
           },
           "500": {
             "description": "Internal Server Error"
@@ -315,33 +1012,114 @@
     },
     "/question/reorder": {
       "post": {
-        "description": "",
+        "tags": [
+          "Question"
+        ],
+        "summary": "Create a drag-to-reorder question",
+        "description": "Creates a question where users must arrange options in the correct order.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "consumes": [
+          "multipart/form-data"
+        ],
         "parameters": [
           {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "quizId": {
-                  "example": "any"
-                },
-                "text": {
-                  "example": "any"
-                },
-                "options": {
-                  "example": "any"
-                },
-                "videos": {
-                  "example": "any"
-                }
-              }
+            "name": "quizId",
+            "in": "formData",
+            "required": true,
+            "type": "integer",
+            "example": 1
+          },
+          {
+            "name": "text",
+            "in": "formData",
+            "required": true,
+            "type": "string",
+            "example": "Order the planets by distance from the Sun"
+          },
+          {
+            "name": "options",
+            "in": "formData",
+            "required": true,
+            "type": "string",
+            "description": "JSON array of options with correct order: [{text, order}]"
+          },
+          {
+            "name": "files",
+            "in": "formData",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "file"
             }
           }
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Question created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/question/reorder/{id}": {
+      "put": {
+        "tags": [
+          "Question"
+        ],
+        "summary": "Update a reorder question",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 5
+          },
+          {
+            "name": "text",
+            "in": "formData",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "options",
+            "in": "formData",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "files",
+            "in": "formData",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "file"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Question updated"
+          },
+          "401": {
+            "description": "Unauthorized"
           },
           "500": {
             "description": "Internal Server Error"
@@ -351,28 +1129,45 @@
     },
     "/question/location": {
       "post": {
-        "description": "",
+        "tags": [
+          "Question"
+        ],
+        "summary": "Create a map location question",
+        "description": "Creates a question where users must pin a location on a map. The answer is validated by proximity to the correct coordinates.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "body",
             "in": "body",
+            "required": true,
             "schema": {
               "type": "object",
+              "required": [
+                "quizId",
+                "text",
+                "correctLatitude",
+                "correctLongitude"
+              ],
               "properties": {
                 "quizId": {
-                  "example": "any"
+                  "type": "integer",
+                  "example": 1
                 },
                 "text": {
-                  "example": "any"
+                  "type": "string",
+                  "example": "Where is the Eiffel Tower?"
                 },
                 "correctLatitude": {
-                  "example": "any"
+                  "type": "number",
+                  "example": 48.8584
                 },
                 "correctLongitude": {
-                  "example": "any"
-                },
-                "videos": {
-                  "example": "any"
+                  "type": "number",
+                  "example": 2.2945
                 }
               }
             }
@@ -380,7 +1175,61 @@
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Question created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/question/location/{id}": {
+      "put": {
+        "tags": [
+          "Question"
+        ],
+        "summary": "Update a location question",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 5
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                },
+                "correctLatitude": {
+                  "type": "number"
+                },
+                "correctLongitude": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Question updated"
+          },
+          "401": {
+            "description": "Unauthorized"
           },
           "500": {
             "description": "Internal Server Error"
@@ -390,25 +1239,160 @@
     },
     "/question/typeanswer": {
       "post": {
-        "description": "",
+        "tags": [
+          "Question"
+        ],
+        "summary": "Create a type-answer (text input) question",
+        "description": "Creates a question where users must type a text answer that is matched against the correct answer.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "name": "quizId",
+            "in": "formData",
+            "required": true,
+            "type": "integer",
+            "example": 1
+          },
+          {
+            "name": "text",
+            "in": "formData",
+            "required": true,
+            "type": "string",
+            "example": "What is the chemical symbol for gold?"
+          },
+          {
+            "name": "correctAnswer",
+            "in": "formData",
+            "required": true,
+            "type": "string",
+            "example": "Au"
+          },
+          {
+            "name": "files",
+            "in": "formData",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "file"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Question created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/question/typeanswer/{id}": {
+      "put": {
+        "tags": [
+          "Question"
+        ],
+        "summary": "Update a type-answer question",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 5
+          },
+          {
+            "name": "text",
+            "in": "formData",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "correctAnswer",
+            "in": "formData",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "files",
+            "in": "formData",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "file"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Question updated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/match/": {
+      "post": {
+        "tags": [
+          "Match"
+        ],
+        "summary": "Create a match session",
+        "description": "Creates a new match for a quiz. The authenticated user becomes the host. Optionally set time per question, background image, and music.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "body",
             "in": "body",
+            "required": true,
             "schema": {
               "type": "object",
+              "required": [
+                "quizId"
+              ],
               "properties": {
                 "quizId": {
-                  "example": "any"
+                  "type": "integer",
+                  "example": 3
                 },
-                "text": {
-                  "example": "any"
+                "timePerQuestion": {
+                  "type": "integer",
+                  "example": 30,
+                  "description": "Seconds per question (optional)"
                 },
-                "correctAnswer": {
-                  "example": "any"
+                "backgroundUrl": {
+                  "type": "string",
+                  "example": "https://example.com/bg.jpg"
                 },
-                "videos": {
-                  "example": "any"
+                "musicUrl": {
+                  "type": "string",
+                  "example": "https://example.com/music.mp3"
                 }
               }
             }
@@ -416,7 +1400,988 @@
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Match created successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/match/{id}": {
+      "get": {
+        "tags": [
+          "Match"
+        ],
+        "summary": "Get a match by ID",
+        "description": "Returns the full match object including quiz questions, host info, participants, and match results.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 7
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Match returned successfully"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Match"
+        ],
+        "summary": "Update a match",
+        "description": "Updates match settings such as start/end times, time per question, background, or music.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 7
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "startTime": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "endTime": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "timePerQuestion": {
+                  "type": "integer",
+                  "example": 20
+                },
+                "backgroundUrl": {
+                  "type": "string"
+                },
+                "musicUrl": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Match updated successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Match"
+        ],
+        "summary": "Delete a match",
+        "description": "Deletes a match. Only the host can delete their own match.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 7
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Match deleted successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden — user is not the host"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/match/{matchId}/participants": {
+      "post": {
+        "tags": [
+          "Participant"
+        ],
+        "summary": "Join a match as a participant",
+        "description": "Creates a participant record in the match. Works for both authenticated users and guests (userId is optional).",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "matchId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 7
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "displayName"
+              ],
+              "properties": {
+                "displayName": {
+                  "type": "string",
+                  "example": "PlayerOne"
+                },
+                "avatarUrl": {
+                  "type": "string",
+                  "example": "https://example.com/avatar.png"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Participant joined the match"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Participant"
+        ],
+        "summary": "List all participants in a match",
+        "description": "Returns all participants in the given match, ordered by join time.",
+        "parameters": [
+          {
+            "name": "matchId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 7
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Participants returned successfully"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/match/{matchId}/participants/{id}": {
+      "get": {
+        "tags": [
+          "Participant"
+        ],
+        "summary": "Get a single participant",
+        "description": "Returns a participant's details including their submitted answers.",
+        "parameters": [
+          {
+            "name": "matchId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 7
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 42
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Participant returned"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Participant"
+        ],
+        "summary": "Update a participant's display info",
+        "description": "Updates the display name or avatar of a participant.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "matchId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 7
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 42
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "displayName": {
+                  "type": "string",
+                  "example": "CoolPlayer"
+                },
+                "avatarUrl": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Participant updated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Participant"
+        ],
+        "summary": "Leave a match (remove participant)",
+        "description": "Removes the participant from the match.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "matchId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 7
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 42
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Left match successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/match/{matchId}/answers": {
+      "post": {
+        "tags": [
+          "Answer"
+        ],
+        "summary": "Submit an answer",
+        "description": "Records a participant's answer to a question during a live match.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "matchId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 7
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "questionId",
+                "participantId",
+                "answerData",
+                "isCorrect",
+                "score"
+              ],
+              "properties": {
+                "questionId": {
+                  "type": "integer",
+                  "example": 12
+                },
+                "participantId": {
+                  "type": "integer",
+                  "example": 42
+                },
+                "answerData": {
+                  "type": "object",
+                  "description": "The raw answer submitted by the participant",
+                  "example": {
+                    "selected": [
+                      1,
+                      3
+                    ]
+                  }
+                },
+                "isCorrect": {
+                  "type": "boolean",
+                  "example": true
+                },
+                "score": {
+                  "type": "number",
+                  "example": 950
+                },
+                "timeTaken": {
+                  "type": "number",
+                  "description": "Time taken in milliseconds",
+                  "example": 3200
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Answer recorded"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Answer"
+        ],
+        "summary": "Get full match answer report",
+        "description": "Returns all participants' answers for a match with aggregate statistics: total score per participant, correct answer count, and average response time.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "matchId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 7
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Match report returned"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Match not found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/match/{matchId}/participants/{participantId}/answers": {
+      "get": {
+        "tags": [
+          "Answer"
+        ],
+        "summary": "Get a participant's answers",
+        "description": "Returns all answers submitted by a specific participant in a match, including full question details.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "matchId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 7
+          },
+          {
+            "name": "participantId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 42
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Answers returned"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/rating/": {
+      "post": {
+        "tags": [
+          "Rating"
+        ],
+        "summary": "Submit a quiz rating",
+        "description": "Submits a star rating and optional text review for a quiz. The user must have participated in at least one match of this quiz, and can only rate once.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "quizId",
+                "rating"
+              ],
+              "properties": {
+                "quizId": {
+                  "type": "integer",
+                  "example": 1
+                },
+                "rating": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 5,
+                  "example": 4
+                },
+                "text": {
+                  "type": "string",
+                  "example": "Great quiz, really enjoyed it!"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Rating submitted"
+          },
+          "400": {
+            "description": "Bad Request — user has not played this quiz, or already rated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/ai/jobs": {
+      "post": {
+        "tags": [
+          "AI Generation"
+        ],
+        "summary": "Create an AI question generation job",
+        "description": "Creates a new job to generate quiz questions using AI. Must provide either an `instruction` (text prompt) or a `pdfUrl` (document URL).",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "instruction": {
+                  "type": "string",
+                  "example": "Generate 10 questions about the French Revolution"
+                },
+                "pdfUrl": {
+                  "type": "string",
+                  "example": "https://example.com/document.pdf"
+                },
+                "targetQuizId": {
+                  "type": "integer",
+                  "example": 1,
+                  "description": "Quiz to add finalized questions to (optional)"
+                },
+                "questionCount": {
+                  "type": "integer",
+                  "example": 10,
+                  "description": "Number of questions to generate (default: 10)"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Job created with PENDING status"
+          },
+          "400": {
+            "description": "Bad Request — neither instruction nor pdfUrl provided"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "AI Generation"
+        ],
+        "summary": "List all AI jobs for the current user",
+        "description": "Returns all AI generation jobs created by the authenticated user, ordered by most recent first.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Jobs returned"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/ai/jobs/{id}": {
+      "get": {
+        "tags": [
+          "AI Generation"
+        ],
+        "summary": "Get a single AI job with generated questions",
+        "description": "Returns all details of a job including its generated questions (with status, feedback, and link to finalized question if approved).",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 3
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job returned"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Job not found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AI Generation"
+        ],
+        "summary": "Delete an AI job",
+        "description": "Deletes a job. Only the job owner can delete it.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 3
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found or not owner"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/ai/jobs/{id}/status": {
+      "put": {
+        "tags": [
+          "AI Generation"
+        ],
+        "summary": "Update AI job status",
+        "description": "Updates the processing status of an AI job. Status values: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 3
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "status"
+              ],
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "PENDING",
+                    "PROCESSING",
+                    "COMPLETED",
+                    "FAILED"
+                  ],
+                  "example": "COMPLETED"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job status updated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/ai/jobs/{id}/questions": {
+      "post": {
+        "tags": [
+          "AI Generation"
+        ],
+        "summary": "Add AI-generated questions to a job",
+        "description": "Internal endpoint used by the AI service to populate a job with generated questions. Also marks the job status as `COMPLETED`.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 3
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "questions"
+              ],
+              "properties": {
+                "questions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "questionText": {
+                        "type": "string",
+                        "example": "What year did the French Revolution begin?"
+                      },
+                      "questionType": {
+                        "type": "string",
+                        "enum": [
+                          "BUTTONS",
+                          "CHECKBOXES",
+                          "RANGE",
+                          "REORDER",
+                          "LOCATION",
+                          "TYPE_ANSWER"
+                        ]
+                      },
+                      "optionsData": {
+                        "type": "object",
+                        "example": {
+                          "options": [
+                            {
+                              "text": "1789",
+                              "isCorrect": true
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Questions added",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "count": {
+                  "type": "integer",
+                  "example": 10
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/ai/jobs/{id}/questions/{questionId}": {
+      "put": {
+        "tags": [
+          "AI Generation"
+        ],
+        "summary": "Review a generated question (approve / reject / regenerate)",
+        "description": "Updates the status of a generated question. Status values: `PENDING`, `APPROVED`, `REJECTED`, `REGENERATING`. Optionally include feedback for regeneration.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 3
+          },
+          {
+            "name": "questionId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 18
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "status"
+              ],
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "PENDING",
+                    "APPROVED",
+                    "REJECTED",
+                    "REGENERATING"
+                  ],
+                  "example": "APPROVED"
+                },
+                "userFeedback": {
+                  "type": "string",
+                  "example": "Make this question harder"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Question updated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Job not found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/ai/jobs/{id}/questions/{questionId}/finalize": {
+      "post": {
+        "tags": [
+          "AI Generation"
+        ],
+        "summary": "Finalize a generated question (add to quiz)",
+        "description": "Converts an APPROVED generated question into a real quiz question and links it to the target quiz. The generated question must have `APPROVED` status before this action.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 3
+          },
+          {
+            "name": "questionId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "example": 18
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "quizId"
+              ],
+              "properties": {
+                "quizId": {
+                  "type": "integer",
+                  "example": 5,
+                  "description": "ID of the quiz to add the question to"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Question finalized and added to quiz"
+          },
+          "400": {
+            "description": "Question is not in APPROVED status"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Generated question not found"
           },
           "500": {
             "description": "Internal Server Error"

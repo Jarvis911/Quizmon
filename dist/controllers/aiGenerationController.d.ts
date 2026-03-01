@@ -1,0 +1,11 @@
+import { Request, Response } from 'express';
+export declare const createJob: (req: Request, res: Response) => Promise<void>;
+export declare const getJobs: (req: Request, res: Response) => Promise<void>;
+export declare const getJob: (req: Request, res: Response) => Promise<void>;
+export declare const updateGeneratedQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const regenerateGeneratedQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const updateGeneratedQuestionContent: (req: Request, res: Response) => Promise<void>;
+export declare const deleteGeneratedQuestion: (req: Request, res: Response) => Promise<void>;
+export declare const approveAllAndCreateQuiz: (req: Request, res: Response) => Promise<void>;
+export declare const updateJobStatus: (req: Request, res: Response) => Promise<void>;
+export declare const deleteJob: (req: Request, res: Response) => Promise<void>;

@@ -1,0 +1,95 @@
+import passport from 'passport';
+import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
+import { Strategy as LocalStrategy } from 'passport-local';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import bcrypt from 'bcryptjs';
+import prisma from '../prismaClient.js';
+const jwtOptions = {
+    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+    secretOrKey: process.env.JWT_SECRET,
+};
+// JWT Strategy - for protected routes
+passport.use(new JwtStrategy(jwtOptions, async (payload, done) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: payload.id },
+        });
+        if (user) {
+            return done(null, user);
+        }
+        return done(null, false);
+    }
+    catch (error) {
+        return done(error, false);
+    }
+}));
+// Local Strategy - for login
+passport.use(new LocalStrategy({
+    usernameField: 'username',
+    passwordField: 'password',
+}, async (username, password, done) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { username },
+        });
+        if (!user) {
+            return done(null, false, { message: 'User not found' });
+        }
+        if (!user.password) {
+            return done(null, false, { message: 'Please use Google Login for this account' });
+        }
+        const isValidPassword = bcrypt.compareSync(password, user.password);
+        if (!isValidPassword) {
+            return done(null, false, { message: 'Invalid password' });
+        }
+        return done(null, user);
+    }
+    catch (error) {
+        return done(error);
+    }
+}));
+// Google Strategy - for Google Login
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: 'http://localhost:5000/auth/google/callback',
+}, async (accessToken, refreshToken, profile, done) => {
+    try {
+        const email = profile.emails?.[0].value;
+        if (!email) {
+            return done(new Error('No email found from Google profile'), false);
+        }
+        // Try to find user by googleId
+        let user = await prisma.user.findUnique({
+            where: { googleId: profile.id },
+        });
+        if (!user) {
+            // Try to find user by email
+            user = await prisma.user.findUnique({
+                where: { email },
+            });
+            if (user) {
+                // Link Google account to existing user
+                user = await prisma.user.update({
+                    where: { email },
+                    data: { googleId: profile.id },
+                });
+            }
+            else {
+                // Create new user
+                user = await prisma.user.create({
+                    data: {
+                        email,
+                        username: profile.displayName || email.split('@')[0],
+                        googleId: profile.id,
+                    },
+                });
+            }
+        }
+        return done(null, user);
+    }
+    catch (error) {
+        return done(error, false);
+    }
+}));
+export default passport;

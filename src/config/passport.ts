@@ -1,8 +1,9 @@
 import passport from 'passport';
 import { Strategy as JwtStrategy, ExtractJwt, StrategyOptions } from 'passport-jwt';
 import { Strategy as LocalStrategy } from 'passport-local';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import bcrypt from 'bcryptjs';
-import prisma from '../prismaClient.ts';
+import prisma from '../prismaClient.js';
 import { JwtPayload } from '../types/index.js';
 
 const jwtOptions: StrategyOptions = {
@@ -45,6 +46,10 @@ passport.use(
                     return done(null, false, { message: 'User not found' });
                 }
 
+                if (!user.password) {
+                    return done(null, false, { message: 'Please use Google Login for this account' });
+                }
+
                 const isValidPassword = bcrypt.compareSync(password, user.password);
                 if (!isValidPassword) {
                     return done(null, false, { message: 'Invalid password' });
@@ -53,6 +58,58 @@ passport.use(
                 return done(null, user);
             } catch (error) {
                 return done(error);
+            }
+        }
+    )
+);
+
+// Google Strategy - for Google Login
+passport.use(
+    new GoogleStrategy(
+        {
+            clientID: process.env.GOOGLE_CLIENT_ID as string,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+            callbackURL: 'http://localhost:5000/auth/google/callback',
+        },
+        async (accessToken, refreshToken, profile, done) => {
+            try {
+                const email = profile.emails?.[0].value;
+                if (!email) {
+                    return done(new Error('No email found from Google profile'), false);
+                }
+
+                // Try to find user by googleId
+                let user = await prisma.user.findUnique({
+                    where: { googleId: profile.id },
+                });
+
+                if (!user) {
+                    // Try to find user by email
+                    user = await prisma.user.findUnique({
+                        where: { email },
+                    });
+
+                    if (user) {
+                        // Link Google account to existing user
+                        user = await prisma.user.update({
+                            where: { email },
+                            data: { googleId: profile.id },
+                        });
+                    } else {
+                        // Create new user
+                        user = await prisma.user.create({
+                            data: {
+                                email,
+                                username: profile.displayName || email.split('@')[0],
+                                googleId: profile.id,
+                            },
+                        });
+                    }
+                }
+
+                return done(null, user);
+            } catch (error) {
+                return done(error as Error, false);
             }
         }
     )

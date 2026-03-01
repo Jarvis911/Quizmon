@@ -10,11 +10,16 @@
     "start": "node dist/server.js",
     "swagger": "tsx src/utils/swagger.ts"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.13.0",
+    "@socket.io/redis-adapter": "^8.3.0",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
@@ -23,10 +28,13 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.16.3",
     "prisma": "^6.13.0",
+    "redis": "^5.11.0",
     "socket.io": "^4.8.1",
     "swagger-autogen": "^2.23.7",
     "swagger-ui-express": "^5.0.1"
@@ -39,6 +47,7 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^25.2.0",
     "@types/passport": "^1.0.17",
+    "@types/passport-google-oauth20": "^2.0.17",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "@types/swagger-ui-express": "^4.1.8",
