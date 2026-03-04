@@ -12,6 +12,9 @@ import questionRoutes from './routes/questionRoutes.js';
 import matchRoutes from './routes/matchRoutes.js';
 import ratingRoutes from './routes/ratingRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import classroomRoutes from './routes/classroomRoutes.js';
+import homeworkRoutes from './routes/homeworkRoutes.js';
+import reportRoutes from './routes/reportRoutes.js';
 import participantRoutes from './routes/participantRoutes.js';
 import answerRoutes from './routes/answerRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
@@ -47,6 +50,9 @@ app.use('/match', participantRoutes);  // /match/:matchId/participants
 app.use('/match', answerRoutes);       // /match/:matchId/answers
 app.use('/rating', ratingRoutes);
 app.use('/user', userRoutes);
+app.use('/classrooms', classroomRoutes);
+app.use('/homework', homeworkRoutes);
+app.use('/reports', reportRoutes);
 app.use('/ai', aiRoutes);
 
 const server = http.createServer(app);

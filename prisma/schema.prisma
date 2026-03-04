@@ -29,6 +29,9 @@ model User {
   matchResults      MatchResult[]
   matchParticipants MatchParticipant[]
   aiGenerationJobs  AIGenerationJob[]
+
+  classrooms        Classroom[]
+  classroomMembers  ClassroomMember[]
 }
 
 model QuizCategory {
@@ -194,6 +197,12 @@ model Match {
   hostId Int
   host   User @relation(fields: [hostId], references: [id], onDelete: Cascade)
 
+  mode        MatchMode  @default(REALTIME)
+  deadline    DateTime? // Hạn chót nộp bài
+  classroomId Int?      // Giao cho một lớp cụ thể
+  classroom   Classroom? @relation(fields: [classroomId], references: [id])
+  strictMode  Boolean    @default(false) // Chống gian lận: rời khỏi tab trình duyệt là bị trừ điểm
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -233,6 +242,10 @@ model MatchParticipant {
   user    User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   joinedAt DateTime @default(now())
+
+  startTime DateTime? // Lúc học sinh bấm "Bắt đầu làm bài"
+  endTime   DateTime? // Lúc học sinh Submit bài hoặc hết giờ cá nhân
+  status    ParticipantStatus @default(NOT_STARTED)
 
   answers MatchAnswer[]
 
@@ -335,3 +348,56 @@ model AIGeneratedQuestion {
   @@index([jobId])
   @@index([status])
 }
+
+// ==================== LMS & CLASSROOM MODELS ====================
+
+enum MatchMode {
+  REALTIME   // Chơi trực tiếp, host điều khiển
+  HOMEWORK   // Bài tập về nhà, Async
+}
+
+enum ParticipantStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  LATE
+}
+
+enum ClassroomRole {
+  TEACHER
+  STUDENT
+}
+
+model Classroom {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  joinCode    String   @unique // Mã code 6 chữ số để học sinh tự join
+  inviteLink  String   @unique // Link mời trực tiếp
+
+  teacherId   Int
+  teacher     User     @relation(fields: [teacherId], references: [id])
+
+  members     ClassroomMember[]
+  assignments Match[]  // Các Quiz được giao cho lớp này
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ClassroomMember {
+  id          Int      @id @default(autoincrement())
+  role        ClassroomRole @default(STUDENT) // TEACHER (Trợ giảng) hoặc STUDENT
+
+  classroomId Int
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  joinDate    DateTime @default(now())
+
+  @@unique([classroomId, userId])
+  @@index([classroomId])
+  @@index([userId])
+}
+
