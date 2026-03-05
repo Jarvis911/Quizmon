@@ -18,6 +18,7 @@ import reportRoutes from './routes/reportRoutes.js';
 import participantRoutes from './routes/participantRoutes.js';
 import answerRoutes from './routes/answerRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 import swaggerUi from 'swagger-ui-express';
 import swaggerFile from './utils/swagger-output.json' with { type: 'json' };
 import { initializeSocket } from './socket/index.js';
@@ -54,6 +55,7 @@ app.use('/classrooms', classroomRoutes);
 app.use('/homework', homeworkRoutes);
 app.use('/reports', reportRoutes);
 app.use('/ai', aiRoutes);
+app.use('/notifications', notificationRoutes);
 
 const server = http.createServer(app);
 

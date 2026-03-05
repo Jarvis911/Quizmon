@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../prismaClient.js';
+import { emailService } from '../services/emailService.js';
 
 // Create a homework assignment (Async Match)
 export const createHomeworkMatch = async (req: Request, res: Response): Promise<void> => {
@@ -35,6 +36,44 @@ export const createHomeworkMatch = async (req: Request, res: Response): Promise<
                 quiz: { select: { title: true } }
             }
         });
+
+        // ================= NOTIFICATION & EMAIL =================
+        // Fetch all students in the classroom
+        const students = await prisma.classroomMember.findMany({
+            where: { classroomId: Number(classroomId), role: 'STUDENT' },
+            include: { user: true }
+        });
+
+        if (students.length > 0) {
+            const notifications = students.map(student => ({
+                userId: student.user.id,
+                message: `Giáo viên vừa giao bài tập mới: ${match.quiz.title}`,
+                type: 'HOMEWORK_ASSIGNED',
+                link: `/classrooms/${classroomId}`
+            }));
+
+            // Bulk insert notifications
+            await prisma.notification.createMany({
+                data: notifications
+            });
+
+            // Send Emails in parallel
+            const emailPromises = students
+                .filter(s => s.user.email) // Ensure user has an email
+                .map(student =>
+                    emailService.sendEmail(
+                        student.user.email,
+                        "Bài tập mới trên Quizmon!",
+                        `<h2>Chào ${student.user.username || 'bạn'},</h2>
+                         <p>Giáo viên vừa giao một bài tập mới: <strong>${match.quiz.title}</strong>.</p>
+                         <p>Hãy vào lớp học để hoàn thành ngay nhé!</p>`
+                    )
+                );
+
+            // Do not await to avoid blocking the response
+            Promise.all(emailPromises).catch(console.error);
+        }
+        // ========================================================
 
         res.status(201).json(match);
     } catch (error) {

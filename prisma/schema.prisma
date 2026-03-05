@@ -32,6 +32,7 @@ model User {
 
   classrooms        Classroom[]
   classroomMembers  ClassroomMember[]
+  notifications     Notification[]
 }
 
 model QuizCategory {
@@ -400,4 +401,22 @@ model ClassroomMember {
   @@index([classroomId])
   @@index([userId])
 }
+
+// ==================== NOTIFICATION MODELS ====================
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  message   String
+  type      String   // e.g., "HOMEWORK_ASSIGNED", "CLASSROOM_JOINED"
+  isRead    Boolean  @default(false)
+  link      String?  // Optional URL to redirect when clicked
+
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
 
