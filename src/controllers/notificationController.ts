@@ -1,11 +1,9 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "../prismaClient.js";
 
 export const getNotifications = async (req: Request, res: Response): Promise<void> => {
     try {
-        const userId = req.user?.id; // Assuming auth middleware attaches `user`
+        const userId = req.userId; // `userId` is attached by authMiddleware
 
         if (!userId) {
             res.status(401).json({ message: "Unauthorized" });
@@ -27,8 +25,8 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
 
 export const markAsRead = async (req: Request, res: Response): Promise<void> => {
     try {
-        const userId = req.user?.id;
-        const notificationId = parseInt(req.params.id);
+        const userId = req.userId;
+        const notificationId = parseInt(req.params.id as string);
 
         if (!userId) {
             res.status(401).json({ message: "Unauthorized" });
@@ -58,7 +56,7 @@ export const markAsRead = async (req: Request, res: Response): Promise<void> => 
 
 export const markAllAsRead = async (req: Request, res: Response): Promise<void> => {
     try {
-        const userId = req.user?.id;
+        const userId = req.userId;
 
         if (!userId) {
             res.status(401).json({ message: "Unauthorized" });
