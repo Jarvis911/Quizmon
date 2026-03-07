@@ -1,0 +1,67 @@
+﻿
+> quizmon@1.0.0 test
+> node --experimental-vm-modules node_modules/jest/bin/jest.js
+
+node.exe : (node:2096) ExperimentalWarning: VM Modules is an 
+experimental feature and might change at any time
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" 
+"C:\Users\ASUS\AppData\Roaming\n ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:2096) Exp...nge at  
+   any time:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:30076) ExperimentalWarning: VM Modules is an experimental 
+feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:17904) ExperimentalWarning: VM Modules is an experimental 
+feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/__tests__/organizationRoutes.test.ts (10.453 s)
+PASS src/__tests__/subscriptionRoutes.test.ts (10.484 s)
+PASS src/__tests__/quizRoutes.test.ts (10.41 s)
+(node:5908) ExperimentalWarning: VM Modules is an experimental feature 
+and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:17244) ExperimentalWarning: VM Modules is an experimental 
+feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:27208) ExperimentalWarning: VM Modules is an experimental 
+feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:7504) ExperimentalWarning: VM Modules is an experimental feature 
+and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:10080) ExperimentalWarning: VM Modules is an experimental 
+feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16684) ExperimentalWarning: VM Modules is an experimental 
+feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:27344) ExperimentalWarning: VM Modules is an experimental 
+feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:6344) ExperimentalWarning: VM Modules is an experimental feature 
+and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/__tests__/notificationRoutes.test.ts (11.144 s)
+PASS src/__tests__/matchRoutes.test.ts (11.165 s)
+PASS src/__tests__/userRoutes.test.ts (11.319 s)
+PASS src/__tests__/ratingRoutes.test.ts (11.287 s)
+PASS src/__tests__/participantRoutes.test.ts (11.262 s)
+PASS src/__tests__/authRoutes.test.ts (11.214 s)
+PASS src/__tests__/reportRoutes.test.ts (11.418 s)
+PASS src/__tests__/questionRoutes.test.ts (11.495 s)
+PASS src/__tests__/homeworkRoutes.test.ts
+PASS src/__tests__/classroomRoutes.test.ts
+PASS src/__tests__/aiRoutes.test.ts
+PASS src/__tests__/answerRoutes.test.ts
+PASS src/__tests__/categoryRoutes.test.ts
+
+Test Suites: 16 passed, 16 total
+Tests:       82 passed, 82 total
+Snapshots:   0 total
+Time:        14.713 s
+Ran all test suites.

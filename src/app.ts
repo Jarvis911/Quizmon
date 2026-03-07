@@ -17,6 +17,8 @@ import participantRoutes from './routes/participantRoutes.js';
 import answerRoutes from './routes/answerRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import organizationRoutes from './routes/organizationRoutes.js';
+import subscriptionRoutes from './routes/subscriptionRoutes.js';
 import swaggerUi from 'swagger-ui-express';
 import swaggerFile from './utils/swagger-output.json' with { type: 'json' };
 
@@ -49,5 +51,7 @@ app.use('/homework', homeworkRoutes);
 app.use('/reports', reportRoutes);
 app.use('/ai', aiRoutes);
 app.use('/notifications', notificationRoutes);
+app.use('/organizations', organizationRoutes);
+app.use('/subscriptions', subscriptionRoutes);
 
 export default app;

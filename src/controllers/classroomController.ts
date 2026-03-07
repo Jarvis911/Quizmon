@@ -24,6 +24,7 @@ export const createClassroom = async (req: Request, res: Response): Promise<void
                 joinCode,
                 inviteLink,
                 teacherId: Number(userId),
+                organizationId: req.organizationId ?? null,
                 members: {
                     create: {
                         userId: Number(userId),
@@ -54,7 +55,8 @@ export const getClassrooms = async (req: Request, res: Response): Promise<void> 
             where: {
                 members: {
                     some: { userId: Number(userId) }
-                }
+                },
+                ...(req.organizationId ? { organizationId: req.organizationId } : {}),
             },
             include: {
                 teacher: {

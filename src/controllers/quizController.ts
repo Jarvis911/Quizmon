@@ -38,6 +38,7 @@ export const createQuiz = async (req: Request, res: Response): Promise<void> => 
                 isPublic: !!isPublic,
                 creatorId: Number(creatorId),
                 categoryId: Number(categoryId),
+                organizationId: req.organizationId ?? null,
             },
             include: {
                 creator: {
@@ -61,6 +62,7 @@ export const getQuiz = async (req: Request, res: Response): Promise<void> => {
         const data = await prisma.quiz.findMany({
             where: {
                 creatorId: Number(req.userId),
+                ...(req.organizationId ? { organizationId: req.organizationId } : {}),
             },
             include: {
                 creator: {

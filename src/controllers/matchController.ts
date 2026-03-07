@@ -27,6 +27,7 @@ export const createMatch = async (req: Request, res: Response): Promise<void> =>
                 timePerQuestion: timePerQuestion ? Number(timePerQuestion) : null,
                 backgroundUrl: backgroundUrl || null,
                 musicUrl: musicUrl || null,
+                organizationId: req.organizationId ?? null,
             },
             include: {
                 quiz: true,
