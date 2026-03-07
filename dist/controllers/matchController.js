@@ -10,6 +10,7 @@ export const createMatch = async (req, res) => {
                 timePerQuestion: timePerQuestion ? Number(timePerQuestion) : null,
                 backgroundUrl: backgroundUrl || null,
                 musicUrl: musicUrl || null,
+                organizationId: req.organizationId ?? null,
             },
             include: {
                 quiz: true,

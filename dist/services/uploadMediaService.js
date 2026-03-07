@@ -1,4 +1,4 @@
-import cloudinary from '../utils/cloudinary.js';
+import { uploadBufferToAzure } from './azureBlobService.js';
 export const uploadMedia = async (files, videos) => {
     const mediaData = [];
     if (files) {
@@ -6,18 +6,10 @@ export const uploadMedia = async (files, videos) => {
             if (!file.mimetype.startsWith('image/')) {
                 throw new Error('Only image files are allowed for upload');
             }
-            const uploadResult = await new Promise((resolve, reject) => {
-                const uploadStream = cloudinary.uploader.upload_stream({ resource_type: 'image' }, (error, result) => {
-                    if (error)
-                        reject(error);
-                    else
-                        resolve(result);
-                });
-                uploadStream.end(file.buffer);
-            });
+            const secure_url = await uploadBufferToAzure(file.buffer, file.originalname, file.mimetype);
             mediaData.push({
                 type: 'IMAGE',
-                url: uploadResult.secure_url,
+                url: secure_url,
             });
         }
     }

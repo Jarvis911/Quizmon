@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import cloudinary from '../utils/cloudinary.js';
+import { uploadBufferToAzure } from '../services/azureBlobService.js';
 import prisma from '../prismaClient.js';
 
 interface CreateQuizBody {
@@ -17,17 +17,7 @@ export const createQuiz = async (req: Request, res: Response): Promise<void> => 
 
     try {
         if (imageFile) {
-            const uploadResult = await new Promise<{ secure_url: string }>((resolve, reject) => {
-                const uploadStream = cloudinary.uploader.upload_stream(
-                    { resource_type: 'image' },
-                    (error, result) => {
-                        if (error) reject(error);
-                        else resolve(result as { secure_url: string });
-                    }
-                );
-                uploadStream.end(imageFile.buffer);
-            });
-            imageUrl = uploadResult.secure_url;
+            imageUrl = await uploadBufferToAzure(imageFile.buffer, imageFile.originalname, imageFile.mimetype);
         }
 
         const data = await prisma.quiz.create({

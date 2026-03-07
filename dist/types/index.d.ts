@@ -4,6 +4,7 @@ declare global {
         interface Request {
             userId?: number;
             user?: User;
+            organizationId?: number;
         }
     }
 }

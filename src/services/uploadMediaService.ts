@@ -1,4 +1,4 @@
-import cloudinary from '../utils/cloudinary.js';
+import { uploadBufferToAzure } from './azureBlobService.js';
 import { MediaItem } from './questionService.js';
 
 interface VideoInput {
@@ -7,9 +7,6 @@ interface VideoInput {
     duration?: number;
 }
 
-interface CloudinaryResult {
-    secure_url: string;
-}
 
 export const uploadMedia = async (
     files: Express.Multer.File[] | null,
@@ -22,19 +19,10 @@ export const uploadMedia = async (
             if (!file.mimetype.startsWith('image/')) {
                 throw new Error('Only image files are allowed for upload');
             }
-            const uploadResult = await new Promise<CloudinaryResult>((resolve, reject) => {
-                const uploadStream = cloudinary.uploader.upload_stream(
-                    { resource_type: 'image' },
-                    (error, result) => {
-                        if (error) reject(error);
-                        else resolve(result as CloudinaryResult);
-                    }
-                );
-                uploadStream.end(file.buffer);
-            });
+            const secure_url = await uploadBufferToAzure(file.buffer, file.originalname, file.mimetype);
             mediaData.push({
                 type: 'IMAGE',
-                url: uploadResult.secure_url,
+                url: secure_url,
             });
         }
     }

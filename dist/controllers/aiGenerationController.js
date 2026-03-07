@@ -42,6 +42,7 @@ export const createJob = async (req, res) => {
                 targetQuizId: targetQuizId ? Number(targetQuizId) : null,
                 questionCount: count,
                 userId: Number(userId),
+                organizationId: req.organizationId ?? null,
                 status: AIGenerationStatus.PROCESSING,
             },
         });
