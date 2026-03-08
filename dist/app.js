@@ -28,8 +28,8 @@ const __dirname = dirname(__filename);
 // Initialize Passport
 app.use(passport.initialize());
 // Middleware
-app.use(express.json());
 app.use(corsMiddleware);
+app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerFile));
 app.use('/auth', authRoutes);

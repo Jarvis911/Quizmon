@@ -1,9 +1,10 @@
-import { QuestionType, MediaType } from '@prisma/client';
+import { QuestionType, MediaType, ImageEffect } from '@prisma/client';
 export interface MediaItem {
     type: MediaType;
     url: string;
     startTime?: number | null;
     duration?: number | null;
+    effect?: ImageEffect | null;
 }
 export interface QuestionOption {
     text: string;
@@ -60,6 +61,7 @@ export declare const createQuestion: (questionData: QuestionData) => Promise<{
         url: string;
         startTime: number | null;
         duration: number | null;
+        effect: import("@prisma/client").$Enums.ImageEffect | null;
         questionId: number;
     }[];
     options: {
@@ -112,6 +114,7 @@ export declare const updateQuestion: (id: number, questionData: Partial<Question
         url: string;
         startTime: number | null;
         duration: number | null;
+        effect: import("@prisma/client").$Enums.ImageEffect | null;
         questionId: number;
     }[];
     options: {

@@ -38,6 +38,7 @@ export const createQuestion = async (questionData) => {
                         url: m.url,
                         startTime: m.startTime,
                         duration: m.duration,
+                        effect: m.effect || 'NONE',
                     })),
                 },
                 options: options && {
@@ -109,6 +110,7 @@ export const updateQuestion = async (id, questionData) => {
                         url: m.url,
                         startTime: m.startTime,
                         duration: m.duration,
+                        effect: m.effect || 'NONE',
                     })),
                 },
                 options: {

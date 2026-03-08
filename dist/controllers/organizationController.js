@@ -1,4 +1,5 @@
 import { OrganizationRole } from '@prisma/client';
+import prisma from '../prismaClient.js';
 import { createOrganization, getOrganizations, getOrganizationById, updateOrganization, addMember, removeMember, updateMemberRole, getMemberRole, findUserByEmail, searchUsers, } from '../services/organizationService.js';
 import { getOrgFeatures as getOrgFeaturesService } from '../services/featureGateService.js';
 // ——— Authorization helper ———
@@ -82,11 +83,17 @@ export const addOrgMember = async (req, res) => {
             return;
         }
         let targetUserId = bodyUserId;
-        // If email is provided, find the user
+        // If email or username is provided, find the user
         if (!targetUserId && email) {
-            const user = await findUserByEmail(email);
+            let user = await findUserByEmail(email);
             if (!user) {
-                res.status(404).json({ message: 'User with this email not found' });
+                user = await prisma.user.findFirst({
+                    where: { username: email },
+                    select: { id: true, username: true, email: true },
+                });
+            }
+            if (!user) {
+                res.status(404).json({ message: 'User with this email or username not found' });
                 return;
             }
             targetUserId = user.id;
@@ -99,7 +106,7 @@ export const addOrgMember = async (req, res) => {
         res.status(201).json(member);
     }
     catch (err) {
-        const message = err.message;
+        const message = err instanceof Error ? err.message : String(err);
         if (message.includes('Unique constraint')) {
             res.status(409).json({ message: 'User is already a member of this organization' });
             return;

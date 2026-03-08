@@ -28,10 +28,23 @@ export const uploadBufferToAzure = async (fileBuffer, originalName, mimetype) =>
             throw new Error('Container name is not initialized');
         }
         const containerClient = client.getContainerClient(containerName);
-        // Ensure container exists (create if not, set to public read access for blobs)
+        // Ensure container exists
         const exists = await containerClient.exists();
         if (!exists) {
-            await containerClient.create({ access: 'blob' });
+            try {
+                // Try creating with public read access
+                await containerClient.create({ access: 'blob' });
+            }
+            catch (createErr) {
+                if (createErr.statusCode === 409 && createErr.code === 'PublicAccessNotPermitted') {
+                    // Fallback to private container if the Storage Account blocks public access
+                    console.warn('[Azure Blob] Public access is disabled at the Storage Account level. Creating a private container instead.');
+                    await containerClient.create();
+                }
+                else {
+                    throw createErr; // Rethrow other unexpected errors
+                }
+            }
         }
         // Generate a unique blob name to prevent overwriting
         const extension = path.extname(originalName);

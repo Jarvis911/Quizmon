@@ -5,6 +5,11 @@ import passport from '../config/passport.js';
 export const register = async (req, res) => {
     const { username, email, password } = req.body;
     try {
+        const existingEmail = await prisma.user.findUnique({ where: { email } });
+        if (existingEmail) {
+            res.status(400).json({ message: 'Email already in use' });
+            return;
+        }
         const hashedPassword = bcrypt.hashSync(password, 8);
         const user = await prisma.user.create({
             data: {

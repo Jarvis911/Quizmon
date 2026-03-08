@@ -1,4 +1,4 @@
-import { QuestionType, MediaType } from '@prisma/client';
+import { QuestionType, MediaType, ImageEffect } from '@prisma/client';
 import prisma from '../prismaClient.js';
 
 export interface MediaItem {
@@ -6,6 +6,7 @@ export interface MediaItem {
     url: string;
     startTime?: number | null;
     duration?: number | null;
+    effect?: ImageEffect | null;
 }
 
 export interface QuestionOption {
@@ -80,6 +81,7 @@ export const createQuestion = async (questionData: QuestionData) => {
                         url: m.url,
                         startTime: m.startTime,
                         duration: m.duration,
+                        effect: m.effect || 'NONE',
                     })),
                 },
                 options: options && {
@@ -164,6 +166,7 @@ export const updateQuestion = async (id: number, questionData: Partial<QuestionD
                         url: m.url,
                         startTime: m.startTime,
                         duration: m.duration,
+                        effect: m.effect || 'NONE',
                     })),
                 },
                 options: {

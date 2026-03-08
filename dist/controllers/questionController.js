@@ -31,10 +31,10 @@ export const getRetrieveQuestion = async (req, res) => {
 };
 // Button question
 export const createButtonQuestion = async (req, res) => {
-    const { quizId, text, options, videos } = req.body;
+    const { quizId, text, options, videos, imageEffect } = req.body;
     const files = req.files;
     try {
-        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null);
+        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
         const questionData = {
             quizId: parseInt(quizId),
             text,
@@ -52,11 +52,11 @@ export const createButtonQuestion = async (req, res) => {
     }
 };
 export const updateButtonQuestion = async (req, res) => {
-    const { quizId, text, options, videos } = req.body;
+    const { quizId, text, options, videos, imageEffect } = req.body;
     const { id } = req.params;
     const files = req.files;
     try {
-        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null);
+        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
         const questionData = {
             quizId: parseInt(quizId),
             text,
@@ -75,10 +75,10 @@ export const updateButtonQuestion = async (req, res) => {
 };
 // Checkbox question
 export const createCheckboxQuestion = async (req, res) => {
-    const { quizId, text, options, videos } = req.body;
+    const { quizId, text, options, videos, imageEffect } = req.body;
     const files = req.files;
     try {
-        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null);
+        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
         const questionData = {
             quizId: Number(quizId),
             text,
@@ -96,11 +96,11 @@ export const createCheckboxQuestion = async (req, res) => {
     }
 };
 export const updateCheckboxQuestion = async (req, res) => {
-    const { quizId, text, options, videos } = req.body;
+    const { quizId, text, options, videos, imageEffect } = req.body;
     const { id } = req.params;
     const files = req.files;
     try {
-        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null);
+        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
         const questionData = {
             quizId: parseInt(quizId),
             text,
@@ -119,10 +119,10 @@ export const updateCheckboxQuestion = async (req, res) => {
 };
 // Range question
 export const createRangeQuestion = async (req, res) => {
-    const { quizId, text, minValue, maxValue, correctValue, videos } = req.body;
+    const { quizId, text, minValue, maxValue, correctValue, videos, imageEffect } = req.body;
     const files = req.files;
     try {
-        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null);
+        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
         const questionData = {
             quizId: Number(quizId),
             text,
@@ -142,11 +142,11 @@ export const createRangeQuestion = async (req, res) => {
     }
 };
 export const updateRangeQuestion = async (req, res) => {
-    const { quizId, text, minValue, maxValue, correctValue, videos } = req.body;
+    const { quizId, text, minValue, maxValue, correctValue, videos, imageEffect } = req.body;
     const files = req.files;
     const { id } = req.params;
     try {
-        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null);
+        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
         const questionData = {
             quizId: parseInt(quizId),
             text,
@@ -167,10 +167,10 @@ export const updateRangeQuestion = async (req, res) => {
 };
 // Reorder question
 export const createReorderQuestion = async (req, res) => {
-    const { quizId, text, options, videos } = req.body;
+    const { quizId, text, options, videos, imageEffect } = req.body;
     const files = req.files;
     try {
-        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null);
+        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
         const questionData = {
             quizId: parseInt(quizId),
             text,
@@ -188,11 +188,11 @@ export const createReorderQuestion = async (req, res) => {
     }
 };
 export const updateReorderQuestion = async (req, res) => {
-    const { quizId, text, options, videos } = req.body;
+    const { quizId, text, options, videos, imageEffect } = req.body;
     const files = req.files;
     const { id } = req.params;
     try {
-        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null);
+        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
         const questionData = {
             quizId: parseInt(quizId),
             text,
@@ -211,10 +211,10 @@ export const updateReorderQuestion = async (req, res) => {
 };
 // Location question
 export const createLocationQuestion = async (req, res) => {
-    const { quizId, text, correctLatitude, correctLongitude, videos } = req.body;
+    const { quizId, text, correctLatitude, correctLongitude, videos, imageEffect } = req.body;
     const files = req.files;
     try {
-        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null);
+        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
         const questionData = {
             quizId: parseInt(quizId),
             text,
@@ -233,11 +233,11 @@ export const createLocationQuestion = async (req, res) => {
     }
 };
 export const updateLocationQuestion = async (req, res) => {
-    const { quizId, text, correctLatitude, correctLongitude, videos } = req.body;
+    const { quizId, text, correctLatitude, correctLongitude, videos, imageEffect } = req.body;
     const files = req.files;
     const { id } = req.params;
     try {
-        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null);
+        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
         const questionData = {
             quizId: parseInt(quizId),
             text,
@@ -257,10 +257,10 @@ export const updateLocationQuestion = async (req, res) => {
 };
 // Type answer question
 export const createTypeAnswerQuestion = async (req, res) => {
-    const { quizId, text, correctAnswer, videos } = req.body;
+    const { quizId, text, correctAnswer, videos, imageEffect } = req.body;
     const files = req.files;
     try {
-        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null);
+        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
         const questionData = {
             quizId: parseInt(quizId),
             text,
@@ -278,11 +278,11 @@ export const createTypeAnswerQuestion = async (req, res) => {
     }
 };
 export const updateTypeAnswerQuestion = async (req, res) => {
-    const { quizId, text, correctAnswer, videos } = req.body;
+    const { quizId, text, correctAnswer, videos, imageEffect } = req.body;
     const files = req.files;
     const { id } = req.params;
     try {
-        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null);
+        const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
         const questionData = {
             quizId: parseInt(quizId),
             text,

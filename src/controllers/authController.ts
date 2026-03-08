@@ -8,6 +8,12 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const { username, email, password } = req.body as { username?: string; email: string; password: string };
 
     try {
+        const existingEmail = await prisma.user.findUnique({ where: { email } });
+        if (existingEmail) {
+            res.status(400).json({ message: 'Email already in use' });
+            return;
+        }
+
         const hashedPassword = bcrypt.hashSync(password, 8);
 
         const user = await prisma.user.create({

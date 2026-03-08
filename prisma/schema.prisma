@@ -15,7 +15,7 @@ datasource db {
 
 model User {
   id       Int     @id @default(autoincrement())
-  username String? @unique
+  username String?
   email    String  @unique
   password String?
   googleId String? @unique
@@ -94,12 +94,20 @@ enum MediaType {
   VIDEO
 }
 
+enum ImageEffect {
+  NONE
+  BLUR_TO_CLEAR
+  ZOOM_IN
+  ZOOM_OUT
+}
+
 model QuestionMedia {
   id        Int       @id() @default(autoincrement())
   type      MediaType
   url       String
   startTime Int?
   duration  Int?
+  effect    ImageEffect? @default(NONE)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

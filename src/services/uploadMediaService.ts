@@ -10,7 +10,8 @@ interface VideoInput {
 
 export const uploadMedia = async (
     files: Express.Multer.File[] | null,
-    videos: VideoInput | null
+    videos: VideoInput | null,
+    imageEffect?: string
 ): Promise<MediaItem[]> => {
     const mediaData: MediaItem[] = [];
 
@@ -23,6 +24,7 @@ export const uploadMedia = async (
             mediaData.push({
                 type: 'IMAGE',
                 url: secure_url,
+                ...(imageEffect && { effect: imageEffect as any }),
             });
         }
     }

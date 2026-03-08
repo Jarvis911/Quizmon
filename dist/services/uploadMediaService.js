@@ -1,5 +1,5 @@
 import { uploadBufferToAzure } from './azureBlobService.js';
-export const uploadMedia = async (files, videos) => {
+export const uploadMedia = async (files, videos, imageEffect) => {
     const mediaData = [];
     if (files) {
         for (const file of files) {
@@ -10,6 +10,7 @@ export const uploadMedia = async (files, videos) => {
             mediaData.push({
                 type: 'IMAGE',
                 url: secure_url,
+                ...(imageEffect && { effect: imageEffect }),
             });
         }
     }
