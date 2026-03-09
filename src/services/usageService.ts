@@ -60,7 +60,9 @@ export const trackUsage = async (
  * Get current period usage for an organization.
  * If key is provided, returns a single metric; otherwise returns all metrics.
  */
-export const getUsage = async (orgId: number, key?: string) => {
+export async function getUsage(orgId: number): Promise<Array<{ id: number; organizationId: number; key: string; value: number; periodStart: Date; periodEnd: Date; createdAt: Date; updatedAt: Date }>>;
+export async function getUsage(orgId: number, key: string): Promise<{ key: string; value: number; periodStart: Date }>;
+export async function getUsage(orgId: number, key?: string) {
     const { start } = await getCurrentPeriod(orgId);
 
     if (key) {

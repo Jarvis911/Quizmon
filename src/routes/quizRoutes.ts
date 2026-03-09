@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import authMiddleware from '../middleware/authMiddleware.js';
 import upload from '../middleware/uploadMiddleware.js';
-import { getQuiz, createQuiz, getRetrieveQuiz, getQuestionByQuiz, checkUserRateQuiz, getQuizRating } from '../controllers/quizController.js';
+import { getQuiz, createQuiz, updateQuiz, getRetrieveQuiz, getQuestionByQuiz, checkUserRateQuiz, getQuizRating } from '../controllers/quizController.js';
 
 const router: Router = Router();
 
@@ -37,6 +37,45 @@ const router: Router = Router();
  *         description: Quiz created successfully
  */
 router.post('/', authMiddleware, upload.single('file'), createQuiz);
+
+// Update Quiz
+/**
+ * @swagger
+ * /quiz/{id}:
+ *   put:
+ *     summary: Update a quiz
+ *     tags: [Quiz]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: Quiz cover image
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               categoryId:
+ *                 type: integer
+ *               isPublic:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Quiz updated successfully
+ */
+router.put('/:id', authMiddleware, upload.single('file'), updateQuiz);
 
 // Get All Quizzes
 /**

@@ -101,11 +101,13 @@ describe('Subscription Routes', () => {
             };
 
             prismaMock.subscription.findFirst.mockResolvedValue(mockSubscription as any);
+            prismaMock.usageMetric.findMany.mockResolvedValue([]);
 
             const response = await request(app).get('/subscriptions/current');
 
             expect(response.status).toBe(200);
             expect(response.body.status).toBe('ACTIVE');
+            expect(response.body.usageMetrics).toBeDefined();
         });
 
         it('should return 404 when no active subscription', async () => {

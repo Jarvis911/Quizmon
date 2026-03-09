@@ -9,8 +9,8 @@ async function main() {
     const plans = [
         {
             type: PlanType.FREE,
-            name: 'Free',
-            description: 'Perfect for getting started.',
+            name: 'Miễn phí',
+            description: 'Hoàn hảo để bắt đầu trải nghiệm.',
             priceMonthly: 0,
             priceYearly: 0,
             isActive: true,
@@ -22,10 +22,10 @@ async function main() {
         },
         {
             type: PlanType.TEACHER_PRO,
-            name: 'Teacher Pro',
-            description: 'Advanced tools for individual teachers.',
-            priceMonthly: 9.99,
-            priceYearly: 99.99,
+            name: 'Giáo viên Chuyên nghiệp',
+            description: 'Công cụ nâng cao cho giáo viên cá nhân.',
+            priceMonthly: 99000,
+            priceYearly: 990000,
             isActive: true,
             features: [
                 { featureKey: FeatureKey.UNLIMITED_MATCHES, limit: null, enabled: true },
@@ -35,10 +35,10 @@ async function main() {
         },
         {
             type: PlanType.SCHOOL,
-            name: 'School',
-            description: 'Best for entire departments.',
-            priceMonthly: 49.99,
-            priceYearly: 499.99,
+            name: 'Trường học',
+            description: 'Tốt nhất cho các khoa hoặc tổ chức giáo dục.',
+            priceMonthly: 499000,
+            priceYearly: 4990000,
             isActive: true,
             features: [
                 { featureKey: FeatureKey.UNLIMITED_MATCHES, limit: null, enabled: true },
@@ -48,10 +48,10 @@ async function main() {
         },
         {
             type: PlanType.ENTERPRISE,
-            name: 'Enterprise',
-            description: 'For large institutions.',
-            priceMonthly: 199.99,
-            priceYearly: 1999.99,
+            name: 'Doanh nghiệp',
+            description: 'Dành cho các cơ sở giáo dục quy mô lớn.',
+            priceMonthly: 1999000,
+            priceYearly: 19990000,
             isActive: true,
             features: [
                 { featureKey: FeatureKey.UNLIMITED_MATCHES, limit: null, enabled: true },

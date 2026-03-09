@@ -38,6 +38,7 @@ export const getQuizByCate = async (req: Request, res: Response): Promise<void> 
                 categoryId: Number(id),
                 isPublic: true,
             },
+            orderBy: { id: 'asc' },
             include: {
                 creator: {
                     select: { id: true, username: true },

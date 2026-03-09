@@ -7,6 +7,7 @@ import {
     hasMatch,
     saveMatch,
     isUserInMatch,
+    getUserMatch,
     setUserMatch,
     getActiveMatchCount,
 } from '../matchStore.js';
@@ -14,8 +15,15 @@ import {
 export function handleJoinMatch(io: Server, socket: CustomSocket) {
     return async ({ matchId, userId, username, displayName, avatarUrl }: JoinMatchPayload) => {
         // Check if user is already in a match
-        if (await isUserInMatch(userId)) {
-            return socket.emit('error', 'You are already in another match');
+        const currentUserMatchId = await getUserMatch(userId);
+        
+        if (currentUserMatchId) {
+            if (currentUserMatchId !== matchId) {
+                // User is in a different match
+                return socket.emit('alreadyInMatch', { currentMatchId: currentUserMatchId });
+            }
+            // If they are in the same match, we allow them to continue to join and resubscribe to the socket room.
+            // And potentially update their socket properties.
         }
 
         if (!(await hasMatch(matchId))) {

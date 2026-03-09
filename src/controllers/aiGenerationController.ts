@@ -3,6 +3,8 @@ import prisma from '../prismaClient.js';
 import { AIGenerationStatus, AIQuestionStatus, QuestionType, Prisma } from '@prisma/client';
 import { generateQuestions, regenerateQuestion, extractPdfText } from '../services/aiService.js';
 import { createQuestion as createQuestionService, QuestionData } from '../services/questionService.js';
+import { trackUsage, checkLimit } from '../services/usageService.js';
+import { FeatureKey } from '@prisma/client';
 
 interface CreateJobBody {
     instruction?: string;
@@ -52,6 +54,23 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
             }
         }
 
+        // Check plan limits
+        const orgId = req.organizationId;
+        if (orgId) {
+            const { allowed, limit, current } = await checkLimit(
+                orgId,
+                'ai_generations',
+                FeatureKey.AI_GENERATION
+            );
+
+            if (!allowed) {
+                res.status(403).json({ 
+                    message: `AI Generation limit reached for this billing period (${current}/${limit}). Please upgrade your plan.`
+                });
+                return;
+            }
+        }
+
         // Create job record
         const job = await prisma.aIGenerationJob.create({
             data: {
@@ -90,6 +109,11 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
                 where: { id: job.id },
                 data: { status: AIGenerationStatus.COMPLETED },
             });
+
+            // Track usage after successful generation
+            if (orgId) {
+                await trackUsage(orgId, 'ai_generations', 1);
+            }
 
             // Return job with generated questions
             const completeJob = await prisma.aIGenerationJob.findUnique({

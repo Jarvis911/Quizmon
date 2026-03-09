@@ -14,6 +14,7 @@ import {
     searchUsers,
 } from '../services/organizationService.js';
 import { getOrgFeatures as getOrgFeaturesService } from '../services/featureGateService.js';
+import { getUsage } from '../services/usageService.js';
 
 // ——— Authorization helper ———
 
@@ -222,8 +223,41 @@ export const getOrgFeatures = async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        const features = await getOrgFeaturesService(orgId);
-        res.status(200).json(features);
+        // Fetch features (array format: { featureKey, enabled, limit })
+        const featuresArray = await getOrgFeaturesService(orgId);
+        
+        // Fetch current usage for the period
+        const usageMetrics = await getUsage(orgId);
+
+        // Usage keys map loosely to feature keys, we can write a helper to match them,
+        // or just rely on finding usages by comparing lowercase key.
+        const usageMap: Record<string, number> = {};
+        for (const metric of usageMetrics) {
+            usageMap[metric.key] = metric.value;
+        }
+
+        // Feature key to Metric key mapping
+        const featureToUsageKey: Record<string, string> = {
+            'AI_GENERATION': 'ai_generations',
+            'UNLIMITED_MATCHES': 'matches_hosted',
+            'MAX_PLAYERS_PER_MATCH': 'max_players' // Not tracked per period, but fits the pattern
+        };
+
+        // Construct dictionary for frontend FeatureContext
+        const featuresDict: Record<string, { enabled: boolean; limit: number | null; current: number }> = {};
+        
+        for (const feat of featuresArray) {
+            const usageKey = featureToUsageKey[feat.featureKey] || feat.featureKey.toLowerCase();
+            const currentUsage = usageMap[usageKey] || 0;
+
+            featuresDict[feat.featureKey] = {
+                enabled: feat.enabled,
+                limit: feat.limit,
+                current: currentUsage
+            };
+        }
+
+        res.status(200).json(featuresDict);
     } catch (err) {
         console.error('[getOrgFeatures Error]:', err);
         res.status(500).json({ message: (err as Error).message });

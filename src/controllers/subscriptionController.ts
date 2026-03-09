@@ -1,15 +1,18 @@
 import { Request, Response } from 'express';
 import prisma from '../prismaClient.js';
-import { SubscriptionStatus, BillingCycle } from '@prisma/client';
-import { createCheckoutSession, fulfillSubscription } from '../services/paymentService.js';
+import { SubscriptionStatus, BillingCycle, PaymentMethod } from '@prisma/client';
+import { createCheckoutSession, fulfillSubscription, handlePaymentCallback, getAvailableGateways } from '../services/paymentService.js';
 import { getUsage } from '../services/usageService.js';
 import { getOrgFeatures } from '../services/featureGateService.js';
 
+// ─── Checkout Flow ──────────────────────────────────────────────────
+
 export const createCheckout = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { planId, billingCycle } = req.body as { 
+        const { planId, billingCycle, paymentMethod } = req.body as { 
             planId: number; 
-            billingCycle?: BillingCycle 
+            billingCycle?: BillingCycle;
+            paymentMethod?: PaymentMethod;
         };
         const organizationId = req.organizationId;
 
@@ -18,8 +21,18 @@ export const createCheckout = async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        const session = await createCheckoutSession(organizationId, planId, billingCycle);
-        res.status(200).json(session);
+        const result = await createCheckoutSession(
+            organizationId,
+            planId,
+            billingCycle,
+            paymentMethod || PaymentMethod.MOMO
+        );
+
+        res.status(200).json({
+            url: result.payUrl,
+            orderId: result.orderId,
+            requestId: result.requestId,
+        });
     } catch (err) {
         console.error('[createCheckout Error]:', err);
         res.status(500).json({ message: (err as Error).message });
@@ -28,19 +41,29 @@ export const createCheckout = async (req: Request, res: Response): Promise<void>
 
 export const fulfillCheckout = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { sessionId, orgId, planId, billingCycle } = req.body as { 
-            sessionId: string; 
+        const { orderId, sessionId, orgId, planId, billingCycle, paymentMethod } = req.body as { 
+            orderId?: string;
+            sessionId?: string; 
             orgId: number; 
             planId: number;
             billingCycle?: BillingCycle;
+            paymentMethod?: PaymentMethod;
         };
 
-        if (!sessionId || !orgId || !planId) {
-            res.status(400).json({ message: 'Missing fulfillment data' });
+        const resolvedOrderId = orderId || sessionId;
+
+        if (!resolvedOrderId || !orgId || !planId) {
+            res.status(400).json({ message: 'Missing fulfillment data (orderId, orgId, planId required)' });
             return;
         }
 
-        const subscription = await fulfillSubscription(sessionId, orgId, planId, billingCycle);
+        const subscription = await fulfillSubscription(
+            resolvedOrderId,
+            orgId,
+            planId,
+            billingCycle,
+            paymentMethod || PaymentMethod.MOCK
+        );
         res.status(200).json(subscription);
     } catch (err) {
         console.error('[fulfillCheckout Error]:', err);
@@ -48,7 +71,50 @@ export const fulfillCheckout = async (req: Request, res: Response): Promise<void
     }
 };
 
-// ——— Handlers ———
+// ─── MoMo IPN Callback ─────────────────────────────────────────────
+
+/**
+ * POST /subscriptions/momo-ipn
+ * Called by MoMo servers (server-to-server). No auth required.
+ */
+export const handleMomoIPN = async (req: Request, res: Response): Promise<void> => {
+    try {
+        console.log('[MoMo IPN] Received callback:', req.body);
+
+        const result = await handlePaymentCallback(PaymentMethod.MOMO, req.body);
+
+        if (result.success) {
+            console.log('[MoMo IPN] Payment fulfilled successfully');
+            // MoMo expects HTTP 204 for successful IPN processing
+            res.status(204).send();
+        } else {
+            console.warn('[MoMo IPN] Payment not successful:', result.message);
+            res.status(200).json({ message: result.message });
+        }
+    } catch (err) {
+        console.error('[MoMo IPN Error]:', err);
+        // Return 200 to prevent MoMo retries on processing errors
+        res.status(200).json({ message: (err as Error).message });
+    }
+};
+
+// ─── Payment Methods ────────────────────────────────────────────────
+
+/**
+ * GET /subscriptions/payment-methods
+ * List available payment gateways.
+ */
+export const getPaymentMethods = async (_req: Request, res: Response): Promise<void> => {
+    try {
+        const gateways = getAvailableGateways();
+        res.status(200).json(gateways);
+    } catch (err) {
+        console.error('[getPaymentMethods Error]:', err);
+        res.status(500).json({ message: (err as Error).message });
+    }
+};
+
+// ─── Existing Handlers ──────────────────────────────────────────────
 
 /**
  * GET /subscriptions/plans — List all active plans with their features.
@@ -92,10 +158,9 @@ export const getCurrentSubscription = async (req: Request, res: Response): Promi
             return;
         }
 
-        // Attach feature statuses
         const features = await getOrgFeatures(orgId);
-
-        res.status(200).json({ ...subscription, featureStatuses: features });
+        const usage = await getUsage(orgId);
+        res.status(200).json({ ...subscription, featureStatuses: features, usageMetrics: usage });
     } catch (err) {
         console.error('[getCurrentSubscription Error]:', err);
         res.status(500).json({ message: (err as Error).message });
@@ -104,7 +169,6 @@ export const getCurrentSubscription = async (req: Request, res: Response): Promi
 
 /**
  * POST /subscriptions — Create or upgrade a subscription.
- * Body: { planId, billingCycle? }
  */
 export const createSubscription = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -119,20 +183,17 @@ export const createSubscription = async (req: Request, res: Response): Promise<v
             billingCycle?: BillingCycle;
         };
 
-        // Verify plan exists
         const plan = await prisma.plan.findUnique({ where: { id: Number(planId) } });
         if (!plan || !plan.isActive) {
             res.status(404).json({ message: 'Plan not found or inactive' });
             return;
         }
 
-        // Cancel any existing active subscription
         await prisma.subscription.updateMany({
             where: { organizationId: orgId, status: SubscriptionStatus.ACTIVE },
             data: { status: SubscriptionStatus.CANCELED, canceledAt: new Date() },
         });
 
-        // Compute billing period
         const now = new Date();
         const cycle = billingCycle ?? BillingCycle.MONTHLY;
         const periodEnd = new Date(now);

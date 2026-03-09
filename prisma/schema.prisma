@@ -488,6 +488,13 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum PaymentMethod {
+  MOMO
+  VNPAY
+  STRIPE
+  MOCK
+}
+
 enum FeatureKey {
   AI_GENERATION
   UNLIMITED_MATCHES
@@ -587,12 +594,13 @@ model Subscription {
 }
 
 model Payment {
-  id       Int           @id @default(autoincrement())
-  amount   Float
-  currency String        @default("USD")
-  status   PaymentStatus @default(PAY_PENDING)
+  id            Int           @id @default(autoincrement())
+  amount        Float
+  currency      String        @default("USD")
+  status        PaymentStatus @default(PAY_PENDING)
+  paymentMethod PaymentMethod @default(MOCK)
 
-  externalId  String? // Stripe/PayPal transaction ID
+  externalId  String? // Gateway transaction ID (MoMo orderId, Stripe session ID, etc.)
   description String?
 
   organizationId Int
