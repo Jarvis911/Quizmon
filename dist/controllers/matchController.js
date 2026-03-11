@@ -1,8 +1,22 @@
 import prisma from '../prismaClient.js';
+import { trackUsage, checkLimit } from '../services/usageService.js';
+import { FeatureKey } from '@prisma/client';
 export const createMatch = async (req, res) => {
     try {
         const { quizId, timePerQuestion, backgroundUrl, musicUrl } = req.body;
         const hostId = req.userId;
+        const orgId = req.organizationId;
+        if (!orgId) {
+            res.status(403).json({ message: 'Bạn cần tham gia một tổ chức hoặc có gói cá nhân để tổ chức trận đấu.' });
+            return;
+        }
+        const { allowed, limit, current } = await checkLimit(orgId, 'matches_hosted', FeatureKey.UNLIMITED_MATCHES);
+        if (!allowed) {
+            res.status(403).json({
+                message: `Bạn đã đạt giới hạn tối đa ${limit} trận đấu cho giai đoạn này. Vui lòng nâng cấp gói để tiếp tục.`
+            });
+            return;
+        }
         const match = await prisma.match.create({
             data: {
                 quizId: Number(quizId),
@@ -10,13 +24,14 @@ export const createMatch = async (req, res) => {
                 timePerQuestion: timePerQuestion ? Number(timePerQuestion) : null,
                 backgroundUrl: backgroundUrl || null,
                 musicUrl: musicUrl || null,
-                organizationId: req.organizationId ?? null,
+                organizationId: req.organizationId,
             },
             include: {
                 quiz: true,
                 host: { select: { id: true, username: true } },
             },
         });
+        await trackUsage(orgId, 'matches_hosted', 1);
         res.status(201).json(match);
     }
     catch (err) {

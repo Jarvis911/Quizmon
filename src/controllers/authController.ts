@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import passport from '../config/passport.js';
 
+import { createOrganization } from '../services/organizationService.js';
+
 export const register = async (req: Request, res: Response): Promise<void> => {
     const { username, email, password } = req.body as { username?: string; email: string; password: string };
 
@@ -23,6 +25,14 @@ export const register = async (req: Request, res: Response): Promise<void> => {
                 password: hashedPassword,
             },
         });
+
+        // Auto-create personal organization for the user
+        try {
+            const orgName = username ? `${username}'s Org` : "Personal Organization";
+            await createOrganization(orgName, user.id);
+        } catch (orgErr) {
+            console.error('[register] Failed to create default org:', orgErr);
+        }
 
         const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET as string, {
             expiresIn: '24h',

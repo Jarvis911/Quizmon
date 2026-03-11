@@ -3,12 +3,22 @@ import prisma from '../prismaClient.js';
 /**
  * Get the current billing period boundaries for an organization.
  * Falls back to the current calendar month if no active subscription exists.
+ * Supports "daily" periods for specific keys (e.g. AI generation on FREE plan).
  */
-const getCurrentPeriod = async (orgId: number): Promise<{ start: Date; end: Date }> => {
+const getCurrentPeriod = async (orgId: number, key?: string): Promise<{ start: Date; end: Date }> => {
     const subscription = await prisma.subscription.findFirst({
         where: { organizationId: orgId, status: 'ACTIVE' },
+        include: { plan: true },
         orderBy: { createdAt: 'desc' },
     });
+
+    // Strategy: AI Generation and matches on FREE plan is DAILY
+    if ((key === 'ai_generations' || key === 'matches_hosted') && subscription?.plan?.type === 'FREE') {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        return { start, end };
+    }
 
     if (subscription) {
         return {
@@ -33,7 +43,7 @@ export const trackUsage = async (
     key: string,
     increment: number = 1
 ) => {
-    const { start, end } = await getCurrentPeriod(orgId);
+    const { start, end } = await getCurrentPeriod(orgId, key);
 
     return prisma.usageMetric.upsert({
         where: {
@@ -63,7 +73,7 @@ export const trackUsage = async (
 export async function getUsage(orgId: number): Promise<Array<{ id: number; organizationId: number; key: string; value: number; periodStart: Date; periodEnd: Date; createdAt: Date; updatedAt: Date }>>;
 export async function getUsage(orgId: number, key: string): Promise<{ key: string; value: number; periodStart: Date }>;
 export async function getUsage(orgId: number, key?: string) {
-    const { start } = await getCurrentPeriod(orgId);
+    const { start } = await getCurrentPeriod(orgId, key);
 
     if (key) {
         const metric = await prisma.usageMetric.findUnique({
@@ -117,7 +127,7 @@ export const checkLimit = async (
     }
 
     // Get current usage
-    const { start } = await getCurrentPeriod(orgId);
+    const { start } = await getCurrentPeriod(orgId, usageKey);
     const metric = await prisma.usageMetric.findUnique({
         where: {
             organizationId_key_periodStart: {

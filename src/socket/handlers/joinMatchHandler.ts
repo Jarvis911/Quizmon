@@ -68,7 +68,32 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
         if (!matchState) return;
 
         if (matchState.state !== 'waiting') {
-            return socket.emit('error', 'Match has already started or ended');
+            const playerIndex = matchState.players.findIndex(p => Number(p.userId) === Number(userId));
+            const isDisconnected = playerIndex >= 0 && matchState.players[playerIndex].disconnected;
+
+            if (matchState.state === 'started' && isDisconnected) {
+                // Reconnect flow
+                matchState.players[playerIndex].disconnected = false;
+
+                await saveMatch(matchId, matchState);
+                await setUserMatch(Number(userId), matchId);
+
+                // Join socket room
+                socket.join(matchId);
+                socket.matchId = matchId;
+                socket.userId = Number(userId);
+
+                console.log(`Player ${userId} reconnected to started match ${matchId}!`);
+
+                // Send event specifically to the reconnecting player to jump into the game
+                socket.emit('gameStarted');
+                
+                // Notify others visually or internally if needed
+                io.to(matchId).emit('playerJoined', matchState.players);
+                return;
+            } else {
+                return socket.emit('error', 'Match has already started or ended');
+            }
         }
 
         if (matchState.players.length >= MAX_PLAYER_PER_MATCH) {
@@ -84,6 +109,8 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
                 username,
                 displayName: displayName || username,
                 avatarUrl: avatarUrl || null,
+                disconnected: false,
+                socketId: socket.id,
             };
         } else {
             // Add player to match with display customization
@@ -94,6 +121,7 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
                 avatarUrl: avatarUrl || null,
                 score: 0,
                 submitted: new Set(),
+                socketId: socket.id,
             });
         }
 

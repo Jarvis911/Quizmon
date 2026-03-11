@@ -6,6 +6,8 @@ export interface Player {
     avatarUrl: string | null;
     score: number;
     submitted: Set<number>;
+    disconnected?: boolean;
+    socketId?: string;
 }
 export interface MatchState {
     state: 'waiting' | 'started' | 'ended';

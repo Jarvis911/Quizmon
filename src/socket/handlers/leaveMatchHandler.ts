@@ -1,6 +1,6 @@
 import { Server } from 'socket.io';
 import { CustomSocket } from '../types.js';
-import { getMatch, hasMatch, removeUserMatch, saveMatch } from '../matchStore.js';
+import { getMatch, hasMatch, removeUserMatch, saveMatch, deleteMatch } from '../matchStore.js';
 import { endMatch } from './endMatchHandler.js';
 import { handleCancelMatch } from './cancelMatchHandler.js';
 
@@ -17,15 +17,42 @@ export function handleLeaveMatch(io: Server, socket: CustomSocket) {
         if (!userId) return;
 
         if (Number(userId) === Number(matchState.hostId) && matchState.state === 'waiting') {
-            console.log(`Host ${userId} left match ${matchId}, cancelling match`);
-            // Tell the host they left successfully FIRST before broadcasting destruction
-            socket.emit('leftMatch');
-            socket.leave(matchId);
-            if (socket.matchId === matchId) {
-                socket.matchId = undefined;
+            console.log(`Host ${userId} left match ${matchId}`);
+            
+            // Reassign host if there are other players
+            const remainingPlayers = matchState.players.filter((p) => Number(p.userId) !== Number(userId));
+            
+            if (remainingPlayers.length > 0) {
+                const newHostId = remainingPlayers[0].userId;
+                matchState.hostId = Number(newHostId);
+                matchState.players = remainingPlayers;
+                console.log(`Reassigned host for match ${matchId} to user ${newHostId}`);
+                
+                await saveMatch(matchId, matchState);
+                await removeUserMatch(userId);
+                
+                socket.emit('leftMatch');
+                socket.leave(matchId);
+                if (socket.matchId === matchId) {
+                    socket.matchId = undefined;
+                }
+                
+                io.to(matchId).emit('playerLeft', remainingPlayers);
+                io.to(matchId).emit('hostChanged', { newHostId: Number(newHostId) });
+                return;
+            } else {
+                console.log(`Host ${userId} left match ${matchId}, cleaning up Redis state as no players left`);
+                // Tell the host they left successfully FIRST before broadcasting destruction
+                socket.emit('leftMatch');
+                socket.leave(matchId);
+                if (socket.matchId === matchId) {
+                    socket.matchId = undefined;
+                }
+                
+                await removeUserMatch(userId);
+                await deleteMatch(matchId);
+                return;
             }
-            await handleCancelMatch(io, socket)({ matchId });
-            return;
         }
 
         // Remove player from match
@@ -50,7 +77,11 @@ export function handleLeaveMatch(io: Server, socket: CustomSocket) {
 
         // End match if no players left and the match hasn't started natively (e.g. host leaves)
         if (matchState.players.length === 0) {
-            await endMatch(io, matchId);
+            if (matchState.state === 'waiting') {
+                await deleteMatch(matchId);
+            } else {
+                await endMatch(io, matchId);
+            }
         }
     };
 }

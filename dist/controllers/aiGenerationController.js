@@ -38,14 +38,16 @@ export const createJob = async (req, res) => {
         }
         // Check plan limits
         const orgId = req.organizationId;
-        if (orgId) {
-            const { allowed, limit, current } = await checkLimit(orgId, 'ai_generations', FeatureKey.AI_GENERATION);
-            if (!allowed) {
-                res.status(403).json({
-                    message: `AI Generation limit reached for this billing period (${current}/${limit}). Please upgrade your plan.`
-                });
-                return;
-            }
+        if (!orgId) {
+            res.status(403).json({ message: 'Bạn cần tham gia một tổ chức hoặc có gói cá nhân để sử dụng tính năng này.' });
+            return;
+        }
+        const { allowed, limit, current } = await checkLimit(orgId, 'ai_generations', FeatureKey.AI_GENERATION);
+        if (!allowed) {
+            res.status(403).json({
+                message: `Bạn đã đạt giới hạn tạo AI cho giai đoạn này (${current}/${limit}). Vui lòng nâng cấp gói dịch vụ để tiếp tục.`
+            });
+            return;
         }
         // Create job record
         const job = await prisma.aIGenerationJob.create({

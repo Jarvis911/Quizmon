@@ -1,4 +1,7 @@
 import prisma from '../prismaClient.js';
+import { canUseFeature } from '../services/featureGateService.js';
+import { FeatureKey } from '@prisma/client';
+import crypto from 'crypto';
 // Create a new classroom
 export const createClassroom = async (req, res) => {
     try {
@@ -12,6 +15,26 @@ export const createClassroom = async (req, res) => {
         const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
         // Generate an invite link (a unique token style, but here just a uuid)
         const inviteLink = crypto.randomUUID();
+        // Enforcement: Check MAX_CLASSROOMS limit
+        const orgId = req.organizationId;
+        if (!orgId) {
+            res.status(403).json({ message: 'Bạn cần tham gia một tổ chức hoặc có gói cá nhân để tạo lớp học.' });
+            return;
+        }
+        const { allowed, limit } = await canUseFeature(orgId, FeatureKey.MAX_CLASSROOMS);
+        if (!allowed) {
+            res.status(403).json({ message: 'Tính năng tạo lớp học không có sẵn trong gói hiện tại của bạn.' });
+            return;
+        }
+        if (limit !== null) {
+            const classroomCount = await prisma.classroom.count({
+                where: { organizationId: orgId }
+            });
+            if (classroomCount >= limit) {
+                res.status(403).json({ message: `Bạn đã đạt giới hạn tối đa ${limit} lớp học cho tổ chức này.` });
+                return;
+            }
+        }
         const classroom = await prisma.classroom.create({
             data: {
                 name,
@@ -126,6 +149,19 @@ export const joinClassroom = async (req, res) => {
         if (!classroom) {
             res.status(404).json({ message: 'Invalid join code' });
             return;
+        }
+        // Enforcement: Check MAX_STUDENTS_PER_CLASSROOM limit
+        if (classroom.organizationId) {
+            const { allowed, limit } = await canUseFeature(classroom.organizationId, FeatureKey.MAX_STUDENTS_PER_CLASSROOM);
+            if (allowed && limit !== null) {
+                const studentCount = await prisma.classroomMember.count({
+                    where: { classroomId: classroom.id, role: 'STUDENT' }
+                });
+                if (studentCount >= limit) {
+                    res.status(403).json({ message: `Lớp học này đã đạt giới hạn tối đa ${limit} học sinh.` });
+                    return;
+                }
+            }
         }
         // Check if already a member
         const existingMember = await prisma.classroomMember.findUnique({

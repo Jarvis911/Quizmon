@@ -34,8 +34,8 @@ export declare const fulfillSubscription: (orderId: string, orgId: number, planI
         id: number;
         createdAt: Date;
         updatedAt: Date;
-        description: string | null;
         type: import("@prisma/client").$Enums.PlanType;
+        description: string | null;
         priceMonthly: number;
         priceYearly: number;
         isActive: boolean;
@@ -44,13 +44,13 @@ export declare const fulfillSubscription: (orderId: string, orgId: number, planI
     id: number;
     createdAt: Date;
     updatedAt: Date;
-    organizationId: number;
     status: import("@prisma/client").$Enums.SubscriptionStatus;
     billingCycle: import("@prisma/client").$Enums.BillingCycle;
     currentPeriodStart: Date;
     currentPeriodEnd: Date;
     canceledAt: Date | null;
     trialEndsAt: Date | null;
+    organizationId: number;
     planId: number;
 }>;
 /**

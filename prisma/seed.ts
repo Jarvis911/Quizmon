@@ -194,6 +194,8 @@ async function main() {
                 { featureKey: FeatureKey.UNLIMITED_MATCHES, limit: 5, enabled: true },
                 { featureKey: FeatureKey.AI_GENERATION, limit: 3, enabled: true },
                 { featureKey: FeatureKey.MAX_PLAYERS_PER_MATCH, limit: 10, enabled: true },
+                { featureKey: FeatureKey.MAX_CLASSROOMS, limit: 1, enabled: true },
+                { featureKey: FeatureKey.MAX_STUDENTS_PER_CLASSROOM, limit: 10, enabled: true },
             ],
         },
         {
@@ -207,6 +209,8 @@ async function main() {
                 { featureKey: FeatureKey.UNLIMITED_MATCHES, limit: null, enabled: true },
                 { featureKey: FeatureKey.AI_GENERATION, limit: 50, enabled: true },
                 { featureKey: FeatureKey.MAX_PLAYERS_PER_MATCH, limit: 50, enabled: true },
+                { featureKey: FeatureKey.MAX_CLASSROOMS, limit: 10, enabled: true },
+                { featureKey: FeatureKey.MAX_STUDENTS_PER_CLASSROOM, limit: 50, enabled: true },
             ],
         },
         {
@@ -220,6 +224,8 @@ async function main() {
                 { featureKey: FeatureKey.UNLIMITED_MATCHES, limit: null, enabled: true },
                 { featureKey: FeatureKey.AI_GENERATION, limit: 500, enabled: true },
                 { featureKey: FeatureKey.MAX_PLAYERS_PER_MATCH, limit: 200, enabled: true },
+                { featureKey: FeatureKey.MAX_CLASSROOMS, limit: 50, enabled: true },
+                { featureKey: FeatureKey.MAX_STUDENTS_PER_CLASSROOM, limit: 100, enabled: true },
             ],
         },
         {
@@ -233,6 +239,8 @@ async function main() {
                 { featureKey: FeatureKey.UNLIMITED_MATCHES, limit: null, enabled: true },
                 { featureKey: FeatureKey.AI_GENERATION, limit: null, enabled: true },
                 { featureKey: FeatureKey.MAX_PLAYERS_PER_MATCH, limit: 1000, enabled: true },
+                { featureKey: FeatureKey.MAX_CLASSROOMS, limit: 500, enabled: true },
+                { featureKey: FeatureKey.MAX_STUDENTS_PER_CLASSROOM, limit: 1000, enabled: true },
             ],
         },
     ];

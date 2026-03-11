@@ -16,10 +16,10 @@ export declare const createOrganization: (name: string, userId: number) => Promi
         };
     } & {
         id: number;
-        organizationId: number;
-        userId: number;
         role: import("@prisma/client").$Enums.OrganizationRole;
         joinedAt: Date;
+        userId: number;
+        organizationId: number;
     })[];
 } & {
     name: string;
@@ -33,19 +33,14 @@ export declare const createOrganization: (name: string, userId: number) => Promi
  * List all organizations the user belongs to.
  */
 export declare const getOrganizations: (userId: number) => Promise<({
-    _count: {
-        quizzes: number;
-        classrooms: number;
-        members: number;
-    };
     subscriptions: ({
         plan: {
             name: string;
             id: number;
             createdAt: Date;
             updatedAt: Date;
-            description: string | null;
             type: import("@prisma/client").$Enums.PlanType;
+            description: string | null;
             priceMonthly: number;
             priceYearly: number;
             isActive: boolean;
@@ -54,15 +49,20 @@ export declare const getOrganizations: (userId: number) => Promise<({
         id: number;
         createdAt: Date;
         updatedAt: Date;
-        organizationId: number;
         status: import("@prisma/client").$Enums.SubscriptionStatus;
         billingCycle: import("@prisma/client").$Enums.BillingCycle;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         canceledAt: Date | null;
         trialEndsAt: Date | null;
+        organizationId: number;
         planId: number;
     })[];
+    _count: {
+        members: number;
+        quizzes: number;
+        classrooms: number;
+    };
 } & {
     name: string;
     id: number;
@@ -75,11 +75,6 @@ export declare const getOrganizations: (userId: number) => Promise<({
  * Get a single organization by ID with members.
  */
 export declare const getOrganizationById: (orgId: number) => Promise<({
-    _count: {
-        quizzes: number;
-        classrooms: number;
-        matches: number;
-    };
     members: ({
         user: {
             id: number;
@@ -88,10 +83,10 @@ export declare const getOrganizationById: (orgId: number) => Promise<({
         };
     } & {
         id: number;
-        organizationId: number;
-        userId: number;
         role: import("@prisma/client").$Enums.OrganizationRole;
         joinedAt: Date;
+        userId: number;
+        organizationId: number;
     })[];
     subscriptions: ({
         plan: {
@@ -107,8 +102,8 @@ export declare const getOrganizationById: (orgId: number) => Promise<({
             id: number;
             createdAt: Date;
             updatedAt: Date;
-            description: string | null;
             type: import("@prisma/client").$Enums.PlanType;
+            description: string | null;
             priceMonthly: number;
             priceYearly: number;
             isActive: boolean;
@@ -117,15 +112,20 @@ export declare const getOrganizationById: (orgId: number) => Promise<({
         id: number;
         createdAt: Date;
         updatedAt: Date;
-        organizationId: number;
         status: import("@prisma/client").$Enums.SubscriptionStatus;
         billingCycle: import("@prisma/client").$Enums.BillingCycle;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         canceledAt: Date | null;
         trialEndsAt: Date | null;
+        organizationId: number;
         planId: number;
     })[];
+    _count: {
+        quizzes: number;
+        classrooms: number;
+        matches: number;
+    };
 } & {
     name: string;
     id: number;
@@ -149,10 +149,10 @@ export declare const updateOrganization: (orgId: number, data: {
         };
     } & {
         id: number;
-        organizationId: number;
-        userId: number;
         role: import("@prisma/client").$Enums.OrganizationRole;
         joinedAt: Date;
+        userId: number;
+        organizationId: number;
     })[];
 } & {
     name: string;
@@ -173,10 +173,10 @@ export declare const addMember: (orgId: number, userId: number, role?: Organizat
     };
 } & {
     id: number;
-    organizationId: number;
-    userId: number;
     role: import("@prisma/client").$Enums.OrganizationRole;
     joinedAt: Date;
+    userId: number;
+    organizationId: number;
 }>;
 /**
  * Remove a member from an organization.
@@ -184,10 +184,10 @@ export declare const addMember: (orgId: number, userId: number, role?: Organizat
  */
 export declare const removeMember: (orgId: number, userId: number) => Promise<{
     id: number;
-    organizationId: number;
-    userId: number;
     role: import("@prisma/client").$Enums.OrganizationRole;
     joinedAt: Date;
+    userId: number;
+    organizationId: number;
 }>;
 /**
  * Update a member's role in an organization.
@@ -201,10 +201,10 @@ export declare const updateMemberRole: (orgId: number, userId: number, role: Org
     };
 } & {
     id: number;
-    organizationId: number;
-    userId: number;
     role: import("@prisma/client").$Enums.OrganizationRole;
     joinedAt: Date;
+    userId: number;
+    organizationId: number;
 }>;
 /**
  * Get the member role for a user in an organization.

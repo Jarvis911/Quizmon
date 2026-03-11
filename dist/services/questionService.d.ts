@@ -54,8 +54,8 @@ export declare const createQuestion: (questionData: QuestionData) => Promise<{
     createdAt: Date;
     updatedAt: Date;
     data: Prisma.JsonValue | null;
-    text: string;
     type: import("@prisma/client").$Enums.QuestionType;
+    text: string;
     quizId: number;
 }>;
 export declare const updateQuestion: (id: number, questionData: Partial<QuestionData>) => Promise<{
@@ -84,7 +84,7 @@ export declare const updateQuestion: (id: number, questionData: Partial<Question
     createdAt: Date;
     updatedAt: Date;
     data: Prisma.JsonValue | null;
-    text: string;
     type: import("@prisma/client").$Enums.QuestionType;
+    text: string;
     quizId: number;
 }>;

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import authMiddleware from '../middleware/authMiddleware.js';
+import orgMiddleware from '../middleware/orgMiddleware.js';
 import upload from '../middleware/uploadMiddleware.js';
 import { getQuiz, createQuiz, updateQuiz, getRetrieveQuiz, getQuestionByQuiz, checkUserRateQuiz, getQuizRating } from '../controllers/quizController.js';
 
@@ -36,7 +37,7 @@ const router: Router = Router();
  *       201:
  *         description: Quiz created successfully
  */
-router.post('/', authMiddleware, upload.single('file'), createQuiz);
+router.post('/', authMiddleware, orgMiddleware, upload.single('file'), createQuiz);
 
 // Update Quiz
 /**
@@ -75,7 +76,7 @@ router.post('/', authMiddleware, upload.single('file'), createQuiz);
  *       200:
  *         description: Quiz updated successfully
  */
-router.put('/:id', authMiddleware, upload.single('file'), updateQuiz);
+router.put('/:id', authMiddleware, orgMiddleware, upload.single('file'), updateQuiz);
 
 // Get All Quizzes
 /**
@@ -90,7 +91,7 @@ router.put('/:id', authMiddleware, upload.single('file'), updateQuiz);
  *       200:
  *         description: List of quizzes
  */
-router.get('/', authMiddleware, getQuiz);
+router.get('/', authMiddleware, orgMiddleware, getQuiz);
 
 // Get Quiz Questions
 /**
@@ -149,7 +150,7 @@ router.get('/:id', getRetrieveQuiz);
  *       200:
  *         description: Rating status
  */
-router.get('/:id/rated', authMiddleware, checkUserRateQuiz);
+router.get('/:id/rated', authMiddleware, orgMiddleware, checkUserRateQuiz);
 
 // Get Quiz Rating
 /**

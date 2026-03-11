@@ -84,6 +84,15 @@ passport.use(new GoogleStrategy({
                         googleId: profile.id,
                     },
                 });
+                // Auto-create personal organization for the user
+                try {
+                    const orgName = user.username ? `${user.username}'s Org` : "Personal Organization";
+                    const { createOrganization } = await import('../services/organizationService.js');
+                    await createOrganization(orgName, user.id);
+                }
+                catch (orgErr) {
+                    console.error('[GoogleStrategy] Failed to create default org:', orgErr);
+                }
             }
         }
         return done(null, user);
