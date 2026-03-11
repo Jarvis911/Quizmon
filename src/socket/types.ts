@@ -24,10 +24,12 @@ export interface MatchState {
 export interface Question {
     id: number;
     type: string;
-    options: { isCorrect?: boolean; order?: number; text: string }[];
-    range?: { minValue: number; maxValue: number; correctValue: number };
-    typeAnswer?: { correctAnswer: string };
-    location?: { correctLatitude: number; correctLongitude: number };
+    options: { id: number; isCorrect?: boolean; order?: number; text: string }[];
+    data?: {
+        minValue?: number; maxValue?: number; correctValue?: number;  // RANGE
+        correctAnswer?: string;                                       // TYPEANSWER
+        correctLatitude?: number; correctLongitude?: number;           // LOCATION
+    } | null;
 }
 
 export type AnswerType = number | number[] | boolean[] | string | { lat: number; lon: number };

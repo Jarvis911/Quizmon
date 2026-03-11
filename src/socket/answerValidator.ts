@@ -15,8 +15,8 @@ export function validateAnswer(question: Question, answer: AnswerType): { isVali
         case 'CHECKBOXES':
             if (
                 Array.isArray(answer) &&
-                answer.length === question.options.length &&
-                answer.every((a) => typeof a === 'boolean')
+                answer.length > 0 &&
+                answer.every((a) => Number.isInteger(a) && (a as number) >= 0 && (a as number) < question.options.length)
             ) {
                 return { isValid: true };
             }
@@ -25,9 +25,9 @@ export function validateAnswer(question: Question, answer: AnswerType): { isVali
         case 'RANGE':
             if (
                 typeof answer === 'number' &&
-                !!question.range &&
-                answer >= question.range.minValue &&
-                answer <= question.range.maxValue
+                !!question.data &&
+                answer >= question.data.minValue! &&
+                answer <= question.data.maxValue!
             ) {
                 return { isValid: true };
             }
@@ -41,7 +41,7 @@ export function validateAnswer(question: Question, answer: AnswerType): { isVali
             ) {
                 return { isValid: true };
             }
-            return { isValid: false, error: 'Invalid reorder selection' };
+            return { isValid: false, error: 'Thứ tự không hợp lệ' };
 
         case 'TYPEANSWER':
             if (typeof answer === 'string' && answer.trim().length > 0) {

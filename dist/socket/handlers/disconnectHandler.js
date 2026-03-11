@@ -1,4 +1,4 @@
-import { getMatch, hasMatch, removeUserMatch, saveMatch } from '../matchStore.js';
+import { getMatch, hasMatch, removeUserMatch, saveMatch, deleteMatch } from '../matchStore.js';
 import { endMatch } from './endMatchHandler.js';
 export function handleDisconnect(io, socket) {
     return async () => {
@@ -9,15 +9,25 @@ export function handleDisconnect(io, socket) {
             if (!matchState)
                 return;
             // Remove player from match
-            matchState.players = matchState.players.filter((player) => player.userId !== userId);
+            matchState.players = matchState.players.filter((player) => Number(player.userId) !== Number(userId));
             await saveMatch(matchId, matchState);
             await removeUserMatch(userId);
-            console.log(`Player ${userId} left match ${matchId}. Remaining players: ${matchState.players.length}`);
+            console.log(`Player/Host ${userId} disconnected from match ${matchId}. Remaining players: ${matchState.players.length}`);
             // Notify remaining players
             io.to(matchId).emit('playerLeft', matchState.players);
-            // End match if no players left
+            // If no players left, clean up the match gracefully
             if (matchState.players.length === 0) {
-                await endMatch(io, matchId);
+                if (matchState.state === 'waiting') {
+                    // Just clean up from Redis, don't delete from Prisma DB
+                    // This allows the host to reconnect and recreate the lobby state
+                    console.log(`Match ${matchId} is empty and waiting, cleaning up Redis state.`);
+                    await deleteMatch(matchId);
+                }
+                else if (matchState.state === 'started') {
+                    // Everyone left an active match, gracefully end it so results map correctly
+                    console.log(`Match ${matchId} is empty and started, ending match gracefully.`);
+                    await endMatch(io, matchId);
+                }
             }
         }
     };

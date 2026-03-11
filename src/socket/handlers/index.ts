@@ -8,3 +8,4 @@ export { handleUpdatePlayerInfo } from './updatePlayerInfoHandler.js';
 export { handleUpdateMatchSettings } from './updateMatchSettingsHandler.js';
 export { handleSurrender } from './surrenderHandler.js';
 export { handleLeaveMatch } from './leaveMatchHandler.js';
+export { handleCancelMatch } from './cancelMatchHandler.js';

@@ -1,31 +1,32 @@
-import { BillingCycle } from '@prisma/client';
-/**
- * Payment Service (Mock Integration)
- *
- * In a real app, this would use the Stripe SDK to create checkout sessions
- * and handle webhooks.
- */
-interface CheckoutSession {
-    id: string;
-    url: string;
-    status: 'open' | 'expired' | 'complete';
+import { BillingCycle, PaymentMethod } from '@prisma/client';
+import { getAvailableGateways } from './gateways/paymentGateway.js';
+export { getAvailableGateways };
+interface CheckoutResult {
+    /** URL to redirect the user to for payment */
+    payUrl: string;
+    /** Our internal order ID */
+    orderId: string;
+    /** Gateway request ID */
+    requestId: string;
+    /** Raw response for debugging */
+    rawResponse?: any;
 }
 /**
- * Create a checkout session for a subscription plan.
+ * Create a checkout session via the selected payment gateway.
+ * Returns a payUrl that the frontend should redirect the user to.
  */
-export declare const createCheckoutSession: (orgId: number, planId: number, billingCycle?: BillingCycle) => Promise<CheckoutSession>;
+export declare const createCheckoutSession: (orgId: number, planId: number, billingCycle?: BillingCycle, paymentMethod?: PaymentMethod) => Promise<CheckoutResult>;
 /**
- * Handle successful payment event (typically via webhook).
- * Cancels any existing active subscription, creates a Payment record,
- * and creates the new Subscription.
+ * Fulfill a subscription after successful payment.
+ * Called either by IPN callback or by frontend redirect.
  */
-export declare const fulfillSubscription: (sessionId: string, orgId: number, planId: number, billingCycle?: BillingCycle) => Promise<{
+export declare const fulfillSubscription: (orderId: string, orgId: number, planId: number, billingCycle?: BillingCycle, paymentMethod?: PaymentMethod, transactionId?: string) => Promise<{
     plan: {
         features: {
             id: number;
-            limit: number | null;
             planId: number;
             featureKey: import("@prisma/client").$Enums.FeatureKey;
+            limit: number | null;
             enabled: boolean;
         }[];
     } & {
@@ -52,4 +53,11 @@ export declare const fulfillSubscription: (sessionId: string, orgId: number, pla
     trialEndsAt: Date | null;
     planId: number;
 }>;
-export {};
+/**
+ * Process an IPN callback from a payment gateway.
+ * Verifies the callback signature and fulfills the subscription if successful.
+ */
+export declare const handlePaymentCallback: (paymentMethod: PaymentMethod, callbackBody: any) => Promise<{
+    success: boolean;
+    message: string;
+}>;

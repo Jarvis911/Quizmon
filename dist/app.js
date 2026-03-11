@@ -19,6 +19,8 @@ import aiRoutes from './routes/aiRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import organizationRoutes from './routes/organizationRoutes.js';
 import subscriptionRoutes from './routes/subscriptionRoutes.js';
+// Register payment gateways on startup
+import './services/gateways/index.js';
 import swaggerUi from 'swagger-ui-express';
 import swaggerFile from './utils/swagger-output.json' with { type: 'json' };
 const app = express();

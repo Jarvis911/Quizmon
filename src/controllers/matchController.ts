@@ -54,12 +54,6 @@ export const getMatch = async (req: Request, res: Response): Promise<void> => {
                     include: {
                         questions: {
                             include: {
-                                button: true,
-                                checkbox: true,
-                                reorder: true,
-                                range: true,
-                                typeAnswer: true,
-                                location: true,
                                 media: true,
                                 options: true,
                             },
@@ -100,12 +94,6 @@ export const updateMatch = async (req: Request, res: Response): Promise<void> =>
                     include: {
                         questions: {
                             include: {
-                                button: true,
-                                checkbox: true,
-                                reorder: true,
-                                range: true,
-                                typeAnswer: true,
-                                location: true,
                                 media: true,
                                 options: true,
                             },

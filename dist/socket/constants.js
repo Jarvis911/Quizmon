@@ -1,7 +1,7 @@
 // Match configuration constants
-export const MAX_PLAYER_PER_MATCH = 2;
+export const MAX_PLAYER_PER_MATCH = 10;
 export const QUESTION_TIME_LIMIT = 30;
-export const MAX_ACTIVE_MATCHES = 1;
+export const MAX_ACTIVE_MATCHES = 100;
 // Timing constants
 export const TIME_UPDATE_INTERVAL_MS = 100;
 export const NEXT_QUESTION_DELAY_MS = 5000;

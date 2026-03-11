@@ -11,16 +11,16 @@ export function validateAnswer(question, answer) {
             return { isValid: false, error: 'Invalid button selection' };
         case 'CHECKBOXES':
             if (Array.isArray(answer) &&
-                answer.length === question.options.length &&
-                answer.every((a) => typeof a === 'boolean')) {
+                answer.length > 0 &&
+                answer.every((a) => Number.isInteger(a) && a >= 0 && a < question.options.length)) {
                 return { isValid: true };
             }
             return { isValid: false, error: 'Invalid checkbox selection' };
         case 'RANGE':
             if (typeof answer === 'number' &&
-                !!question.range &&
-                answer >= question.range.minValue &&
-                answer <= question.range.maxValue) {
+                !!question.data &&
+                answer >= question.data.minValue &&
+                answer <= question.data.maxValue) {
                 return { isValid: true };
             }
             return { isValid: false, error: 'Invalid range value' };
@@ -30,7 +30,7 @@ export function validateAnswer(question, answer) {
                 new Set(answer).size === answer.length) {
                 return { isValid: true };
             }
-            return { isValid: false, error: 'Invalid reorder selection' };
+            return { isValid: false, error: 'Thứ tự không hợp lệ' };
         case 'TYPEANSWER':
             if (typeof answer === 'string' && answer.trim().length > 0) {
                 return { isValid: true };

@@ -38,6 +38,24 @@ describe('Quiz Routes', () => {
             expect(response.body.title).toBe('Math Quiz');
         });
     });
+    describe('PUT /quiz/:id', () => {
+        it('should update an existing quiz', async () => {
+            const mockUpdatedQuiz = { id: 1, title: 'Updated Math Quiz', description: 'Updated' };
+            prismaMock.quiz.update.mockResolvedValue(mockUpdatedQuiz);
+            const response = await request(app)
+                .put('/quiz/1')
+                .send({ title: 'Updated Math Quiz', description: 'Updated' });
+            expect(response.status).toBe(200);
+            expect(response.body.title).toBe('Updated Math Quiz');
+            expect(prismaMock.quiz.update).toHaveBeenCalledWith(expect.objectContaining({
+                where: { id: 1 },
+                data: expect.objectContaining({
+                    title: 'Updated Math Quiz',
+                    description: 'Updated'
+                })
+            }));
+        });
+    });
     describe('GET /quiz', () => {
         it('should get all quizzes for user', async () => {
             const mockQuizzes = [{ id: 1, title: 'Math Quiz' }];

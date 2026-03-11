@@ -97,9 +97,9 @@ export declare const getOrganizationById: (orgId: number) => Promise<({
         plan: {
             features: {
                 id: number;
-                limit: number | null;
                 planId: number;
                 featureKey: import("@prisma/client").$Enums.FeatureKey;
+                limit: number | null;
                 enabled: boolean;
             }[];
         } & {

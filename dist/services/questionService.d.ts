@@ -1,4 +1,4 @@
-import { QuestionType, MediaType, ImageEffect } from '@prisma/client';
+import { QuestionType, MediaType, ImageEffect, Prisma } from '@prisma/client';
 export interface MediaItem {
     type: MediaType;
     url: string;
@@ -29,30 +29,6 @@ export declare const createQuestion: (questionData: QuestionData) => Promise<{
         id: number;
         title: string;
     };
-    button: {
-        id: number;
-    } | null;
-    checkbox: {
-        id: number;
-    } | null;
-    reorder: {
-        id: number;
-    } | null;
-    range: {
-        id: number;
-        minValue: number;
-        maxValue: number;
-        correctValue: number;
-    } | null;
-    typeAnswer: {
-        id: number;
-        correctAnswer: string;
-    } | null;
-    location: {
-        id: number;
-        correctLatitude: number;
-        correctLongitude: number;
-    } | null;
     media: {
         id: number;
         createdAt: Date;
@@ -77,35 +53,12 @@ export declare const createQuestion: (questionData: QuestionData) => Promise<{
     id: number;
     createdAt: Date;
     updatedAt: Date;
+    data: Prisma.JsonValue | null;
     text: string;
     type: import("@prisma/client").$Enums.QuestionType;
     quizId: number;
 }>;
 export declare const updateQuestion: (id: number, questionData: Partial<QuestionData>) => Promise<{
-    button: {
-        id: number;
-    } | null;
-    checkbox: {
-        id: number;
-    } | null;
-    reorder: {
-        id: number;
-    } | null;
-    range: {
-        id: number;
-        minValue: number;
-        maxValue: number;
-        correctValue: number;
-    } | null;
-    typeAnswer: {
-        id: number;
-        correctAnswer: string;
-    } | null;
-    location: {
-        id: number;
-        correctLatitude: number;
-        correctLongitude: number;
-    } | null;
     media: {
         id: number;
         createdAt: Date;
@@ -130,6 +83,7 @@ export declare const updateQuestion: (id: number, questionData: Partial<Question
     id: number;
     createdAt: Date;
     updatedAt: Date;
+    data: Prisma.JsonValue | null;
     text: string;
     type: import("@prisma/client").$Enums.QuestionType;
     quizId: number;

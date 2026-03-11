@@ -23,12 +23,6 @@ export const getRetrieveQuestion = async (req: Request, res: Response): Promise<
                 id: Number(id),
             },
             include: {
-                button: true,
-                checkbox: true,
-                reorder: true,
-                range: true,
-                typeAnswer: true,
-                location: true,
                 media: true,
                 options: true,
                 quiz: {

@@ -39,7 +39,7 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
                     quiz: {
                         include: {
                             questions: {
-                                include: { options: true, range: true, typeAnswer: true, location: true, media: true },
+                                include: { options: true, media: true },
                             },
                         },
                     },
@@ -75,23 +75,35 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
             return socket.emit('error', 'Match is full');
         }
 
-        // Add player to match with display customization
-        matchState.players.push({
-            userId,
-            username,
-            displayName: displayName || username,
-            avatarUrl: avatarUrl || null,
-            score: 0,
-            submitted: new Set(),
-        });
+        const playerIndex = matchState.players.findIndex(p => Number(p.userId) === Number(userId));
+        
+        if (playerIndex >= 0) {
+            // Update existing player info
+            matchState.players[playerIndex] = {
+                ...matchState.players[playerIndex],
+                username,
+                displayName: displayName || username,
+                avatarUrl: avatarUrl || null,
+            };
+        } else {
+            // Add player to match with display customization
+            matchState.players.push({
+                userId: Number(userId),
+                username,
+                displayName: displayName || username,
+                avatarUrl: avatarUrl || null,
+                score: 0,
+                submitted: new Set(),
+            });
+        }
 
         await saveMatch(matchId, matchState);
-        await setUserMatch(userId, matchId);
+        await setUserMatch(Number(userId), matchId);
 
         // Join socket room
         socket.join(matchId);
         socket.matchId = matchId;
-        socket.userId = userId;
+        socket.userId = Number(userId);
 
         console.log(`Player ${userId} join match ${matchId}!`);
 

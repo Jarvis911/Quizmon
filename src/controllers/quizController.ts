@@ -83,12 +83,6 @@ export const getRetrieveQuiz = async (req: Request, res: Response): Promise<void
                 questions: {
                     orderBy: { id: 'asc' },
                     include: {
-                        button: true,
-                        checkbox: true,
-                        reorder: true,
-                        range: true,
-                        typeAnswer: true,
-                        location: true,
                         media: true,
                         options: true,
                     },
@@ -190,12 +184,6 @@ export const getQuestionByQuiz = async (req: Request, res: Response): Promise<vo
             },
             orderBy: { id: 'asc' },
             include: {
-                button: true,
-                checkbox: true,
-                reorder: true,
-                range: true,
-                typeAnswer: true,
-                location: true,
                 media: true,
                 options: true,
             },

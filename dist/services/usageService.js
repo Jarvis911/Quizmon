@@ -46,11 +46,7 @@ export const trackUsage = async (orgId, key, increment = 1) => {
         },
     });
 };
-/**
- * Get current period usage for an organization.
- * If key is provided, returns a single metric; otherwise returns all metrics.
- */
-export const getUsage = async (orgId, key) => {
+export async function getUsage(orgId, key) {
     const { start } = await getCurrentPeriod(orgId);
     if (key) {
         const metric = await prisma.usageMetric.findUnique({
@@ -67,7 +63,8 @@ export const getUsage = async (orgId, key) => {
     return prisma.usageMetric.findMany({
         where: { organizationId: orgId, periodStart: start },
     });
-};
+}
+;
 /**
  * Check if an organization has exceeded the limit for a given usage key.
  * Returns { allowed, limit, current }.

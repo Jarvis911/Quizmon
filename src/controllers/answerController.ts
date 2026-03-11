@@ -108,12 +108,6 @@ export const getParticipantAnswers = async (req: Request, res: Response): Promis
                 question: {
                     include: {
                         options: true,
-                        button: true,
-                        checkbox: true,
-                        range: true,
-                        reorder: true,
-                        typeAnswer: true,
-                        location: true,
                     },
                 },
             },

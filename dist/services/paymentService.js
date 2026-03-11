@@ -1,9 +1,14 @@
 import prisma from '../prismaClient.js';
-import { SubscriptionStatus, BillingCycle, PaymentStatus } from '@prisma/client';
+import { BillingCycle, SubscriptionStatus, PaymentStatus, PaymentMethod } from '@prisma/client';
+import { getGateway, getAvailableGateways } from './gateways/paymentGateway.js';
+// Re-export for convenience
+export { getAvailableGateways };
+// ─── Create Checkout Session ────────────────────────────────────────
 /**
- * Create a checkout session for a subscription plan.
+ * Create a checkout session via the selected payment gateway.
+ * Returns a payUrl that the frontend should redirect the user to.
  */
-export const createCheckoutSession = async (orgId, planId, billingCycle = BillingCycle.MONTHLY) => {
+export const createCheckoutSession = async (orgId, planId, billingCycle = BillingCycle.MONTHLY, paymentMethod = PaymentMethod.MOMO) => {
     const org = await prisma.organization.findUnique({
         where: { id: orgId },
         include: { members: { where: { role: 'OWNER' }, take: 1 } }
@@ -11,24 +16,57 @@ export const createCheckoutSession = async (orgId, planId, billingCycle = Billin
     const plan = await prisma.plan.findUnique({ where: { id: planId } });
     if (!org || !plan)
         throw new Error('Organization or Plan not found');
-    // MOCK: Generate a fake Stripe checkout ID and URL
-    const sessionId = `cs_test_${Math.random().toString(36).substring(2, 12)}`;
-    // Embed planId and billingCycle in success URL so BillingSuccess can pass them to fulfill
+    // Generate a unique order ID
+    const orderId = `QUIZMON_${orgId}_${planId}_${Date.now()}`;
+    const amount = billingCycle === BillingCycle.YEARLY ? plan.priceYearly : plan.priceMonthly;
+    // For MoMo: amount must be in VND (integer)
+    const amountInSmallestUnit = paymentMethod === PaymentMethod.MOMO
+        ? Math.round(amount) // VND is already whole numbers
+        : Math.round(amount * 100); // USD → cents for Stripe
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const successUrl = `${baseUrl}/billing/success?session_id=${sessionId}&plan_id=${planId}&billing_cycle=${billingCycle}`;
-    const cancelUrl = `${baseUrl}/billing/cancel`;
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+    // Encode plan info in redirectUrl so BillingSuccess can call fulfill
+    const redirectUrl = `${baseUrl}/billing/success?orderId=${orderId}&plan_id=${planId}&billing_cycle=${billingCycle}&payment_method=${paymentMethod}`;
+    const ipnUrl = `${backendUrl}/subscriptions/momo-ipn`;
+    // Get the gateway and create the payment
+    const gateway = getGateway(paymentMethod);
+    const result = await gateway.createPayment({
+        orderId,
+        amount: amountInSmallestUnit,
+        orderInfo: `Quizmon ${plan.name} subscription (${billingCycle})`,
+        redirectUrl,
+        ipnUrl,
+        extraData: Buffer.from(JSON.stringify({
+            orgId,
+            planId,
+            billingCycle,
+        })).toString('base64'),
+    });
+    // Create a PENDING payment record
+    await prisma.payment.create({
+        data: {
+            organizationId: orgId,
+            amount: amountInSmallestUnit,
+            currency: paymentMethod === PaymentMethod.MOMO ? 'VND' : 'USD',
+            status: PaymentStatus.PAY_PENDING,
+            paymentMethod,
+            externalId: orderId,
+            description: `${plan.name} (${billingCycle}) — Pending`,
+        },
+    });
     return {
-        id: sessionId,
-        url: successUrl,
-        status: 'open'
+        payUrl: result.payUrl,
+        orderId: result.gatewayOrderId,
+        requestId: result.requestId,
+        rawResponse: result.rawResponse,
     };
 };
+// ─── Fulfill Subscription ───────────────────────────────────────────
 /**
- * Handle successful payment event (typically via webhook).
- * Cancels any existing active subscription, creates a Payment record,
- * and creates the new Subscription.
+ * Fulfill a subscription after successful payment.
+ * Called either by IPN callback or by frontend redirect.
  */
-export const fulfillSubscription = async (sessionId, orgId, planId, billingCycle = BillingCycle.MONTHLY) => {
+export const fulfillSubscription = async (orderId, orgId, planId, billingCycle = BillingCycle.MONTHLY, paymentMethod = PaymentMethod.MOCK, transactionId) => {
     const plan = await prisma.plan.findUnique({ where: { id: planId } });
     if (!plan)
         throw new Error('Plan not found');
@@ -41,24 +79,38 @@ export const fulfillSubscription = async (sessionId, orgId, planId, billingCycle
         periodEnd.setMonth(periodEnd.getMonth() + 1);
     }
     const amount = billingCycle === BillingCycle.YEARLY ? plan.priceYearly : plan.priceMonthly;
-    // Use a transaction to ensure atomicity
     return prisma.$transaction(async (tx) => {
         // Cancel any existing active subscriptions
         await tx.subscription.updateMany({
             where: { organizationId: orgId, status: SubscriptionStatus.ACTIVE },
             data: { status: SubscriptionStatus.CANCELED, canceledAt: now },
         });
-        // Create Payment record
-        await tx.payment.create({
-            data: {
-                organizationId: orgId,
-                amount,
-                currency: 'USD',
-                status: PaymentStatus.COMPLETED,
-                externalId: sessionId,
-                description: `Subscription to ${plan.name} (${billingCycle})`,
-            },
+        // Update or create Payment record
+        const existingPayment = await tx.payment.findFirst({
+            where: { externalId: orderId, organizationId: orgId },
         });
+        if (existingPayment) {
+            await tx.payment.update({
+                where: { id: existingPayment.id },
+                data: {
+                    status: PaymentStatus.COMPLETED,
+                    description: `Subscription to ${plan.name} (${billingCycle})`,
+                },
+            });
+        }
+        else {
+            await tx.payment.create({
+                data: {
+                    organizationId: orgId,
+                    amount,
+                    currency: paymentMethod === PaymentMethod.MOMO ? 'VND' : 'USD',
+                    status: PaymentStatus.COMPLETED,
+                    paymentMethod,
+                    externalId: transactionId || orderId,
+                    description: `Subscription to ${plan.name} (${billingCycle})`,
+                },
+            });
+        }
         // Create new Subscription
         return tx.subscription.create({
             data: {
@@ -74,4 +126,43 @@ export const fulfillSubscription = async (sessionId, orgId, planId, billingCycle
             },
         });
     });
+};
+// ─── Handle Payment Callback ────────────────────────────────────────
+/**
+ * Process an IPN callback from a payment gateway.
+ * Verifies the callback signature and fulfills the subscription if successful.
+ */
+export const handlePaymentCallback = async (paymentMethod, callbackBody) => {
+    const gateway = getGateway(paymentMethod);
+    const result = await gateway.verifyCallback(callbackBody);
+    if (!result.success) {
+        // Update payment as failed
+        await prisma.payment.updateMany({
+            where: { externalId: result.orderId },
+            data: { status: PaymentStatus.PAY_FAILED },
+        });
+        return { success: false, message: result.message };
+    }
+    // Parse extraData from callback to get orgId, planId, billingCycle
+    let orgId, planId, billingCycle;
+    try {
+        const extraData = callbackBody.extraData
+            ? JSON.parse(Buffer.from(callbackBody.extraData, 'base64').toString())
+            : {};
+        orgId = extraData.orgId;
+        planId = extraData.planId;
+        billingCycle = extraData.billingCycle || BillingCycle.MONTHLY;
+    }
+    catch {
+        // If extraData parsing fails, try to extract from orderId
+        const parts = result.orderId.split('_');
+        orgId = Number(parts[1]);
+        planId = Number(parts[2]);
+        billingCycle = BillingCycle.MONTHLY;
+    }
+    if (!orgId || !planId) {
+        throw new Error('Cannot determine orgId/planId from callback');
+    }
+    await fulfillSubscription(result.orderId, orgId, planId, billingCycle, paymentMethod, result.transactionId);
+    return { success: true, message: 'Subscription activated' };
 };

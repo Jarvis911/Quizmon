@@ -129,13 +129,7 @@ model Question {
   id   Int          @id @default(autoincrement())
   text String
   type QuestionType
-
-  button     QuestionButton?
-  checkbox   QuestionCheckbox?
-  reorder    QuestionReorder?
-  range      QuestionRange?
-  typeAnswer QuestionTypeAnswer?
-  location   QuestionLocation?
+  data Json?        // Type-specific data (range config, correct answer, location coords, etc.)
 
   quizId Int
   quiz   Quiz @relation(fields: [quizId], references: [id])
@@ -147,16 +141,6 @@ model Question {
   media           QuestionMedia[]
   matchAnswers    MatchAnswer[]
   aiGeneratedFrom AIGeneratedQuestion?
-}
-
-model QuestionButton {
-  id       Int      @id
-  question Question @relation(fields: [id], references: [id])
-}
-
-model QuestionCheckbox {
-  id       Int      @id
-  question Question @relation(fields: [id], references: [id])
 }
 
 model QuestionOption {
@@ -172,32 +156,6 @@ model QuestionOption {
   updatedAt DateTime @updatedAt
 
   @@index([questionId])
-}
-
-model QuestionReorder {
-  id       Int      @id
-  question Question @relation(fields: [id], references: [id])
-}
-
-model QuestionRange {
-  id           Int      @id
-  minValue     Int
-  maxValue     Int
-  correctValue Int
-  question     Question @relation(fields: [id], references: [id])
-}
-
-model QuestionTypeAnswer {
-  id            Int      @id
-  correctAnswer String
-  question      Question @relation(fields: [id], references: [id])
-}
-
-model QuestionLocation {
-  id               Int      @id
-  correctLatitude  Float
-  correctLongitude Float
-  question         Question @relation(fields: [id], references: [id])
 }
 
 model Match {

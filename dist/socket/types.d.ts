@@ -25,22 +25,19 @@ export interface Question {
     id: number;
     type: string;
     options: {
+        id: number;
         isCorrect?: boolean;
         order?: number;
         text: string;
     }[];
-    range?: {
-        minValue: number;
-        maxValue: number;
-        correctValue: number;
-    };
-    typeAnswer?: {
-        correctAnswer: string;
-    };
-    location?: {
-        correctLatitude: number;
-        correctLongitude: number;
-    };
+    data?: {
+        minValue?: number;
+        maxValue?: number;
+        correctValue?: number;
+        correctAnswer?: string;
+        correctLatitude?: number;
+        correctLongitude?: number;
+    } | null;
 }
 export type AnswerType = number | number[] | boolean[] | string | {
     lat: number;

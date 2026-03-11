@@ -17,37 +17,53 @@ export function checkAnswer(question: Question, answer: AnswerType | undefined):
 
     switch (question.type) {
         case 'BUTTONS':
+            // Client sends selected index (idx)
             return { isCorrect: !!question.options[answer as number]?.isCorrect };
 
-        case 'CHECKBOXES':
+        case 'CHECKBOXES': {
+            // Client sends array of selected indices: [0, 2]
+            const selectedIndices = answer as number[];
             return {
-                isCorrect: (answer as boolean[]).every((a, i) => (question.options[i].isCorrect ?? false) === a),
+                isCorrect: question.options.every((opt, i) => {
+                    const isSelected = selectedIndices.includes(i);
+                    return (opt.isCorrect ?? false) === isSelected;
+                }),
             };
+        }
 
         case 'RANGE':
             return {
-                isCorrect: question.range
-                    ? Math.abs(question.range.correctValue - (answer as number)) <= RANGE_CORRECT_THRESHOLD
+                isCorrect: question.data
+                    ? Math.abs(question.data.correctValue! - (answer as number)) <= RANGE_CORRECT_THRESHOLD
                     : false,
             };
 
-        case 'REORDER':
+        case 'REORDER': {
+            // Client sends array of IDs in new order: [id1, id2, id3]
+            const orderedIds = answer as number[];
+            // Correct order should be sorting options by their "order" field
+            const correctOrderIds = [...question.options]
+                .sort((a, b) => (a.order || 0) - (b.order || 0))
+                .map((o) => o.id);
+
             return {
-                isCorrect: (answer as number[]).every((a, i) => a === question.options[i]?.order),
+                isCorrect: orderedIds.length === correctOrderIds.length &&
+                    orderedIds.every((id, i) => id === correctOrderIds[i]),
             };
+        }
 
         case 'TYPEANSWER':
             return {
-                isCorrect: question.typeAnswer
-                    ? question.typeAnswer.correctAnswer.toLowerCase() === (answer as string).toLowerCase()
+                isCorrect: question.data
+                    ? question.data.correctAnswer!.toLowerCase().trim() === (answer as string).toLowerCase().trim()
                     : false,
             };
 
         case 'LOCATION': {
-            if (question.location) {
+            if (question.data) {
                 const correctLatLon = {
-                    latitude: +question.location.correctLatitude,
-                    longitude: +question.location.correctLongitude,
+                    latitude: +question.data.correctLatitude!,
+                    longitude: +question.data.correctLongitude!,
                 };
                 const userAns = {
                     latitude: +(answer as { lat: number; lon: number }).lat,

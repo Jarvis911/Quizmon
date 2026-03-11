@@ -2,6 +2,8 @@ import prisma from '../prismaClient.js';
 import { AIGenerationStatus, AIQuestionStatus } from '@prisma/client';
 import { generateQuestions, regenerateQuestion, extractPdfText } from '../services/aiService.js';
 import { createQuestion as createQuestionService } from '../services/questionService.js';
+import { trackUsage, checkLimit } from '../services/usageService.js';
+import { FeatureKey } from '@prisma/client';
 // Create AI generation job + trigger AI generation
 export const createJob = async (req, res) => {
     try {
@@ -31,6 +33,17 @@ export const createJob = async (req, res) => {
             }
             catch (err) {
                 res.status(400).json({ message: 'Failed to parse PDF file' });
+                return;
+            }
+        }
+        // Check plan limits
+        const orgId = req.organizationId;
+        if (orgId) {
+            const { allowed, limit, current } = await checkLimit(orgId, 'ai_generations', FeatureKey.AI_GENERATION);
+            if (!allowed) {
+                res.status(403).json({
+                    message: `AI Generation limit reached for this billing period (${current}/${limit}). Please upgrade your plan.`
+                });
                 return;
             }
         }
@@ -64,6 +77,10 @@ export const createJob = async (req, res) => {
                 where: { id: job.id },
                 data: { status: AIGenerationStatus.COMPLETED },
             });
+            // Track usage after successful generation
+            if (orgId) {
+                await trackUsage(orgId, 'ai_generations', 1);
+            }
             // Return job with generated questions
             const completeJob = await prisma.aIGenerationJob.findUnique({
                 where: { id: job.id },
@@ -335,18 +352,23 @@ export const approveAllAndCreateQuiz = async (req, res) => {
                 const options = optData.options || [];
                 questionData.options = options.map(o => ({
                     text: o.text,
-                    isCorrect: o.isCorrect || false,
+                    // Handle string "true"/"false" from AI
+                    isCorrect: o.isCorrect === true || String(o.isCorrect) === 'true',
                 }));
+                // Fallback: if no correct answer marked by AI, mark the first one
+                if (questionData.options.length > 0 && !questionData.options.some(o => o.isCorrect)) {
+                    questionData.options[0].isCorrect = true;
+                }
             }
             else if (genQ.questionType === 'REORDER') {
                 const options = optData.options || [];
-                questionData.options = options.map(o => ({
+                questionData.options = options.map((o, idx) => ({
                     text: o.text,
-                    order: o.order,
+                    order: o.order || (idx + 1),
                 }));
             }
             else if (genQ.questionType === 'TYPEANSWER') {
-                questionData.correctAnswer = optData.correctAnswer || '';
+                questionData.correctAnswer = optData.correctAnswer || optData.answer || '';
             }
             const createdQ = await createQuestionService(questionData);
             // Update generated question with final reference
@@ -367,7 +389,7 @@ export const approveAllAndCreateQuiz = async (req, res) => {
         const completeQuiz = await prisma.quiz.findUnique({
             where: { id: quiz.id },
             include: {
-                questions: { include: { options: true, range: true, typeAnswer: true, location: true } },
+                questions: { include: { options: true } },
                 category: true,
             },
         });

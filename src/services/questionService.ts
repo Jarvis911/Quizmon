@@ -1,4 +1,4 @@
-import { QuestionType, MediaType, ImageEffect } from '@prisma/client';
+import { QuestionType, MediaType, ImageEffect, Prisma } from '@prisma/client';
 import prisma from '../prismaClient.js';
 
 export interface MediaItem {
@@ -21,12 +21,38 @@ export interface QuestionData {
     type: QuestionType;
     media?: MediaItem[];
     options?: QuestionOption[];
+    // Type-specific fields (will be stored in `data` JSON column)
     minValue?: number;
     maxValue?: number;
     correctValue?: number;
     correctAnswer?: string;
     correctLatitude?: number;
     correctLongitude?: number;
+}
+
+/** Build the `data` JSON column value based on question type */
+function buildQuestionData(
+    type: QuestionType,
+    fields: Pick<QuestionData, 'minValue' | 'maxValue' | 'correctValue' | 'correctAnswer' | 'correctLatitude' | 'correctLongitude'>
+): Prisma.InputJsonValue | undefined {
+    switch (type) {
+        case 'RANGE':
+            return {
+                minValue: fields.minValue!,
+                maxValue: fields.maxValue!,
+                correctValue: fields.correctValue!,
+            };
+        case 'TYPEANSWER':
+            return { correctAnswer: fields.correctAnswer! };
+        case 'LOCATION':
+            return {
+                correctLatitude: fields.correctLatitude!,
+                correctLongitude: fields.correctLongitude!,
+            };
+        default:
+            // BUTTONS, CHECKBOXES, REORDER — no type-specific data needed
+            return undefined;
+    }
 }
 
 export const createQuestion = async (questionData: QuestionData) => {
@@ -45,36 +71,16 @@ export const createQuestion = async (questionData: QuestionData) => {
             correctLongitude,
         } = questionData;
 
+        const dataJson = buildQuestionData(type, {
+            minValue, maxValue, correctValue, correctAnswer, correctLatitude, correctLongitude,
+        });
+
         const question = await prisma.question.create({
             data: {
                 text,
                 type,
                 quizId,
-                ...(type === 'BUTTONS' && { button: { create: {} } }),
-                ...(type === 'CHECKBOXES' && { checkbox: { create: {} } }),
-                ...(type === 'REORDER' && { reorder: { create: {} } }),
-                ...(type === 'RANGE' && {
-                    range: {
-                        create: {
-                            minValue: minValue!,
-                            maxValue: maxValue!,
-                            correctValue: correctValue!,
-                        },
-                    },
-                }),
-                ...(type === 'TYPEANSWER' && {
-                    typeAnswer: {
-                        create: { correctAnswer: correctAnswer! },
-                    },
-                }),
-                ...(type === 'LOCATION' && {
-                    location: {
-                        create: {
-                            correctLatitude: correctLatitude!,
-                            correctLongitude: correctLongitude!,
-                        },
-                    },
-                }),
+                data: dataJson ?? Prisma.DbNull,
                 media: {
                     create: media.map((m) => ({
                         type: m.type,
@@ -93,12 +99,6 @@ export const createQuestion = async (questionData: QuestionData) => {
                 },
             },
             include: {
-                button: true,
-                checkbox: true,
-                reorder: true,
-                range: true,
-                typeAnswer: true,
-                location: true,
                 media: true,
                 options: true,
                 quiz: {
@@ -130,35 +130,18 @@ export const updateQuestion = async (id: number, questionData: Partial<QuestionD
             correctLongitude,
         } = questionData;
 
+        const dataJson = type
+            ? buildQuestionData(type, {
+                  minValue, maxValue, correctValue, correctAnswer, correctLatitude, correctLongitude,
+              })
+            : undefined;
+
         const updated = await prisma.question.update({
             where: { id: Number(id) },
             data: {
                 text,
                 type,
-                ...(type === 'RANGE' && {
-                    range: {
-                        upsert: {
-                            update: { minValue, maxValue, correctValue },
-                            create: { minValue: minValue!, maxValue: maxValue!, correctValue: correctValue! },
-                        },
-                    },
-                }),
-                ...(type === 'TYPEANSWER' && {
-                    typeAnswer: {
-                        upsert: {
-                            update: { correctAnswer },
-                            create: { correctAnswer: correctAnswer! },
-                        },
-                    },
-                }),
-                ...(type === 'LOCATION' && {
-                    location: {
-                        upsert: {
-                            update: { correctLatitude, correctLongitude },
-                            create: { correctLatitude: correctLatitude!, correctLongitude: correctLongitude! },
-                        },
-                    },
-                }),
+                ...(dataJson !== undefined && { data: dataJson ?? Prisma.DbNull }),
                 media: {
                     deleteMany: {},
                     create: media.map((m) => ({
@@ -179,12 +162,6 @@ export const updateQuestion = async (id: number, questionData: Partial<QuestionD
                 },
             },
             include: {
-                button: true,
-                checkbox: true,
-                reorder: true,
-                range: true,
-                typeAnswer: true,
-                location: true,
                 media: true,
                 options: true,
             },

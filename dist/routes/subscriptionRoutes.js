@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import authMiddleware from '../middleware/authMiddleware.js';
 import orgMiddleware from '../middleware/orgMiddleware.js';
-import { getPlans, getCurrentSubscription, createSubscription, cancelSubscription, getUsageMetrics, createCheckout, fulfillCheckout, } from '../controllers/subscriptionController.js';
+import { getPlans, getCurrentSubscription, createSubscription, cancelSubscription, getUsageMetrics, createCheckout, fulfillCheckout, handleMomoIPN, getPaymentMethods, } from '../controllers/subscriptionController.js';
 const router = Router();
 /**
  * @swagger
@@ -14,6 +14,17 @@ const router = Router();
  *         description: List of plans
  */
 router.get('/plans', getPlans);
+/**
+ * @swagger
+ * /subscriptions/payment-methods:
+ *   get:
+ *     summary: List available payment gateways
+ *     tags: [Subscription]
+ *     responses:
+ *       200:
+ *         description: List of payment methods with availability status
+ */
+router.get('/payment-methods', getPaymentMethods);
 /**
  * @swagger
  * /subscriptions/current:
@@ -67,7 +78,7 @@ router.post('/', authMiddleware, orgMiddleware, createSubscription);
  * @swagger
  * /subscriptions/checkout:
  *   post:
- *     summary: Initiate a checkout session
+ *     summary: Initiate a checkout session via payment gateway
  *     tags: [Subscription]
  *     security:
  *       - bearerAuth: []
@@ -82,16 +93,20 @@ router.post('/', authMiddleware, orgMiddleware, createSubscription);
  *                 type: integer
  *               billingCycle:
  *                 type: string
+ *                 enum: [MONTHLY, YEARLY]
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [MOMO, VNPAY, STRIPE]
  *     responses:
  *       200:
- *         description: Checkout session created
+ *         description: Checkout session created with payUrl
  */
 router.post('/checkout', authMiddleware, orgMiddleware, createCheckout);
 /**
  * @swagger
  * /subscriptions/fulfill:
  *   post:
- *     summary: Fulfill a checkout session (Mock)
+ *     summary: Fulfill a checkout session
  *     tags: [Subscription]
  *     security:
  *       - bearerAuth: []
@@ -100,19 +115,39 @@ router.post('/checkout', authMiddleware, orgMiddleware, createCheckout);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [sessionId, orgId, planId]
+ *             required: [orgId, planId]
  *             properties:
+ *               orderId:
+ *                 type: string
  *               sessionId:
  *                 type: string
  *               orgId:
  *                 type: integer
  *               planId:
  *                 type: integer
+ *               paymentMethod:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Subscription fulfilled
  */
 router.post('/fulfill', authMiddleware, orgMiddleware, fulfillCheckout);
+/**
+ * @swagger
+ * /subscriptions/momo-ipn:
+ *   post:
+ *     summary: MoMo IPN callback (server-to-server, no auth)
+ *     tags: [Subscription]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       204:
+ *         description: IPN processed successfully
+ */
+router.post('/momo-ipn', handleMomoIPN);
 /**
  * @swagger
  * /subscriptions/cancel:

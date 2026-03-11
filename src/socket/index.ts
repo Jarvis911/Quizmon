@@ -14,6 +14,7 @@ import {
     handleUpdateMatchSettings,
     handleSurrender,
     handleLeaveMatch,
+    handleCancelMatch,
 } from './handlers/index.js';
 
 export let redisClient: RedisClientType;
@@ -53,6 +54,7 @@ export async function initializeSocket(server: http.Server): Promise<Server> {
         customSocket.on('endMatch', handleEndMatch(io, customSocket));
         customSocket.on('surrender', handleSurrender(io, customSocket));
         customSocket.on('leaveMatch', handleLeaveMatch(io, customSocket));
+        customSocket.on('cancelMatch', handleCancelMatch(io, customSocket));
         customSocket.on('disconnect', handleDisconnect(io, customSocket));
 
         // Lobby customization events

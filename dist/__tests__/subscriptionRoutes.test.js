@@ -86,9 +86,11 @@ describe('Subscription Routes', () => {
                 organization: { id: 1, name: 'Test Org', slug: 'test-org' },
             };
             prismaMock.subscription.findFirst.mockResolvedValue(mockSubscription);
+            prismaMock.usageMetric.findMany.mockResolvedValue([]);
             const response = await request(app).get('/subscriptions/current');
             expect(response.status).toBe(200);
             expect(response.body.status).toBe('ACTIVE');
+            expect(response.body.usageMetrics).toBeDefined();
         });
         it('should return 404 when no active subscription', async () => {
             prismaMock.organizationMember.findFirst.mockResolvedValue({

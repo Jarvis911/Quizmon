@@ -429,19 +429,25 @@ export const approveAllAndCreateQuiz = async (req: Request, res: Response): Prom
 
             // Map optionsData to questionData based on type
             if (genQ.questionType === 'BUTTONS' || genQ.questionType === 'CHECKBOXES') {
-                const options = (optData.options as Array<{ text: string; isCorrect?: boolean }>) || [];
+                const options = (optData.options as Array<{ text: string; isCorrect?: any }>) || [];
                 questionData.options = options.map(o => ({
                     text: o.text,
-                    isCorrect: o.isCorrect || false,
+                    // Handle string "true"/"false" from AI
+                    isCorrect: o.isCorrect === true || String(o.isCorrect) === 'true',
                 }));
+
+                // Fallback: if no correct answer marked by AI, mark the first one
+                if (questionData.options.length > 0 && !questionData.options.some(o => o.isCorrect)) {
+                    questionData.options[0].isCorrect = true;
+                }
             } else if (genQ.questionType === 'REORDER') {
                 const options = (optData.options as Array<{ text: string; order?: number }>) || [];
-                questionData.options = options.map(o => ({
+                questionData.options = options.map((o, idx) => ({
                     text: o.text,
-                    order: o.order,
+                    order: o.order || (idx + 1),
                 }));
             } else if (genQ.questionType === 'TYPEANSWER') {
-                questionData.correctAnswer = (optData.correctAnswer as string) || '';
+                questionData.correctAnswer = (optData.correctAnswer as string) || (optData.answer as string) || '';
             }
 
             const createdQ = await createQuestionService(questionData);
@@ -466,7 +472,7 @@ export const approveAllAndCreateQuiz = async (req: Request, res: Response): Prom
         const completeQuiz = await prisma.quiz.findUnique({
             where: { id: quiz.id },
             include: {
-                questions: { include: { options: true, range: true, typeAnswer: true, location: true } },
+                questions: { include: { options: true } },
                 category: true,
             },
         });

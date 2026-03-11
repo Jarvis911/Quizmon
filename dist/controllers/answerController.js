@@ -89,12 +89,6 @@ export const getParticipantAnswers = async (req, res) => {
                 question: {
                     include: {
                         options: true,
-                        button: true,
-                        checkbox: true,
-                        range: true,
-                        reorder: true,
-                        typeAnswer: true,
-                        location: true,
                     },
                 },
             },

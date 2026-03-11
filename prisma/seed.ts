@@ -65,7 +65,6 @@ async function main() {
             text: 'What is the chemical symbol for Gold?',
             type: QuestionType.BUTTONS,
             quizId: scienceQuiz.id,
-            button: { create: {} },
             options: {
                 create: [
                     { text: 'Au', isCorrect: true },
@@ -83,7 +82,6 @@ async function main() {
             text: 'Which of the following are noble gases?',
             type: QuestionType.CHECKBOXES,
             quizId: scienceQuiz.id,
-            checkbox: { create: {} },
             options: {
                 create: [
                     { text: 'Helium', isCorrect: true },
@@ -101,13 +99,7 @@ async function main() {
             text: 'What is the boiling point of water in Celsius at sea level?',
             type: QuestionType.RANGE,
             quizId: scienceQuiz.id,
-            range: {
-                create: {
-                    minValue: 0,
-                    maxValue: 200,
-                    correctValue: 100,
-                },
-            },
+            data: { minValue: 0, maxValue: 200, correctValue: 100 },
         },
     });
 
@@ -117,7 +109,6 @@ async function main() {
             text: 'Order these planets from the Sun:',
             type: QuestionType.REORDER,
             quizId: scienceQuiz.id,
-            reorder: { create: {} },
             options: {
                 create: [
                     { text: 'Mercury', order: 1 },
@@ -135,11 +126,7 @@ async function main() {
             text: 'What is the largest planet in our solar system?',
             type: QuestionType.TYPEANSWER,
             quizId: scienceQuiz.id,
-            typeAnswer: {
-                create: {
-                    correctAnswer: 'Jupiter',
-                },
-            },
+            data: { correctAnswer: 'Jupiter' },
         },
     });
 
@@ -149,12 +136,7 @@ async function main() {
             text: 'Find the location of the Eiffel Tower.',
             type: QuestionType.LOCATION,
             quizId: scienceQuiz.id,
-            location: {
-                create: {
-                    correctLatitude: 48.8584,
-                    correctLongitude: 2.2945,
-                },
-            },
+            data: { correctLatitude: 48.8584, correctLongitude: 2.2945 },
         },
     });
 
@@ -185,7 +167,6 @@ async function main() {
             text: 'In which year did WWII end?',
             type: QuestionType.BUTTONS,
             quizId: historyQuiz.id,
-            button: { create: {} },
             options: {
                 create: [
                     { text: '1945', isCorrect: true },
@@ -204,8 +185,8 @@ async function main() {
     const plans = [
         {
             type: PlanType.FREE,
-            name: 'Free',
-            description: 'Perfect for getting started.',
+            name: 'Miễn phí',
+            description: 'Hoàn hảo để bắt đầu trải nghiệm.',
             priceMonthly: 0,
             priceYearly: 0,
             isActive: true,
@@ -217,10 +198,10 @@ async function main() {
         },
         {
             type: PlanType.TEACHER_PRO,
-            name: 'Teacher Pro',
-            description: 'Advanced tools for individual teachers.',
-            priceMonthly: 9.99,
-            priceYearly: 99.99,
+            name: 'Giáo viên',
+            description: 'Công cụ nâng cao cho giáo viên cá nhân.',
+            priceMonthly: 99000,
+            priceYearly: 990000,
             isActive: true,
             features: [
                 { featureKey: FeatureKey.UNLIMITED_MATCHES, limit: null, enabled: true },
@@ -230,10 +211,10 @@ async function main() {
         },
         {
             type: PlanType.SCHOOL,
-            name: 'School',
-            description: 'Best for entire departments.',
-            priceMonthly: 49.99,
-            priceYearly: 499.99,
+            name: 'Trường học',
+            description: 'Tốt nhất cho các khoa hoặc tổ chức giáo dục.',
+            priceMonthly: 499000,
+            priceYearly: 4990000,
             isActive: true,
             features: [
                 { featureKey: FeatureKey.UNLIMITED_MATCHES, limit: null, enabled: true },
@@ -243,10 +224,10 @@ async function main() {
         },
         {
             type: PlanType.ENTERPRISE,
-            name: 'Enterprise',
-            description: 'For large institutions.',
-            priceMonthly: 199.99,
-            priceYearly: 1999.99,
+            name: 'Doanh nghiệp',
+            description: 'Dành cho các cơ sở giáo dục quy mô lớn.',
+            priceMonthly: 1999000,
+            priceYearly: 19990000,
             isActive: true,
             features: [
                 { featureKey: FeatureKey.UNLIMITED_MATCHES, limit: null, enabled: true },

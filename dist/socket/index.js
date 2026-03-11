@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { createClient } from 'redis';
 import { createAdapter } from '@socket.io/redis-adapter';
-import { handleJoinMatch, handleStartMatch, handleSubmitAnswer, handleEndMatch, handleDisconnect, handleRequestCurrentQuestion, handleUpdatePlayerInfo, handleUpdateMatchSettings, handleSurrender, } from './handlers/index.js';
+import { handleJoinMatch, handleStartMatch, handleSubmitAnswer, handleEndMatch, handleDisconnect, handleRequestCurrentQuestion, handleUpdatePlayerInfo, handleUpdateMatchSettings, handleSurrender, handleLeaveMatch, handleCancelMatch, } from './handlers/index.js';
 export let redisClient;
 /**
  * Initialize Socket.IO server and set up all event handlers.
@@ -34,6 +34,8 @@ export async function initializeSocket(server) {
         customSocket.on('requestCurrentQuestion', handleRequestCurrentQuestion(customSocket));
         customSocket.on('endMatch', handleEndMatch(io, customSocket));
         customSocket.on('surrender', handleSurrender(io, customSocket));
+        customSocket.on('leaveMatch', handleLeaveMatch(io, customSocket));
+        customSocket.on('cancelMatch', handleCancelMatch(io, customSocket));
         customSocket.on('disconnect', handleDisconnect(io, customSocket));
         // Lobby customization events
         customSocket.on('updatePlayerInfo', handleUpdatePlayerInfo(io, customSocket));

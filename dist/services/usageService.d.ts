@@ -16,25 +16,17 @@ export declare const trackUsage: (orgId: number, key: string, increment?: number
  * Get current period usage for an organization.
  * If key is provided, returns a single metric; otherwise returns all metrics.
  */
-export declare const getUsage: (orgId: number, key?: string) => Promise<{
+export declare function getUsage(orgId: number): Promise<Array<{
     id: number;
-    createdAt: Date;
-    updatedAt: Date;
     organizationId: number;
     key: string;
     value: number;
     periodStart: Date;
     periodEnd: Date;
-} | {
-    id: number;
     createdAt: Date;
     updatedAt: Date;
-    organizationId: number;
-    key: string;
-    value: number;
-    periodStart: Date;
-    periodEnd: Date;
-}[] | {
+}>>;
+export declare function getUsage(orgId: number, key: string): Promise<{
     key: string;
     value: number;
     periodStart: Date;

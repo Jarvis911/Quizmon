@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import { CustomSocket } from '../types.js';
 import { getMatch, hasMatch, removeUserMatch, saveMatch } from '../matchStore.js';
 import { endMatch } from './endMatchHandler.js';
+import { handleCancelMatch } from './cancelMatchHandler.js';
 
 export function handleLeaveMatch(io: Server, socket: CustomSocket) {
     return async ({ matchId }: { matchId: string }) => {
@@ -15,8 +16,20 @@ export function handleLeaveMatch(io: Server, socket: CustomSocket) {
 
         if (!userId) return;
 
+        if (Number(userId) === Number(matchState.hostId) && matchState.state === 'waiting') {
+            console.log(`Host ${userId} left match ${matchId}, cancelling match`);
+            // Tell the host they left successfully FIRST before broadcasting destruction
+            socket.emit('leftMatch');
+            socket.leave(matchId);
+            if (socket.matchId === matchId) {
+                socket.matchId = undefined;
+            }
+            await handleCancelMatch(io, socket)({ matchId });
+            return;
+        }
+
         // Remove player from match
-        matchState.players = matchState.players.filter((p) => p.userId !== userId);
+        matchState.players = matchState.players.filter((p) => Number(p.userId) !== Number(userId));
 
         await saveMatch(matchId, matchState);
         await removeUserMatch(userId);

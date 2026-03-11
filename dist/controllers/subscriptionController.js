@@ -1,18 +1,23 @@
 import prisma from '../prismaClient.js';
-import { SubscriptionStatus, BillingCycle } from '@prisma/client';
-import { createCheckoutSession, fulfillSubscription } from '../services/paymentService.js';
+import { SubscriptionStatus, BillingCycle, PaymentMethod } from '@prisma/client';
+import { createCheckoutSession, fulfillSubscription, handlePaymentCallback, getAvailableGateways } from '../services/paymentService.js';
 import { getUsage } from '../services/usageService.js';
 import { getOrgFeatures } from '../services/featureGateService.js';
+// ─── Checkout Flow ──────────────────────────────────────────────────
 export const createCheckout = async (req, res) => {
     try {
-        const { planId, billingCycle } = req.body;
+        const { planId, billingCycle, paymentMethod } = req.body;
         const organizationId = req.organizationId;
         if (!organizationId) {
             res.status(400).json({ message: 'Organization context required' });
             return;
         }
-        const session = await createCheckoutSession(organizationId, planId, billingCycle);
-        res.status(200).json(session);
+        const result = await createCheckoutSession(organizationId, planId, billingCycle, paymentMethod || PaymentMethod.MOMO);
+        res.status(200).json({
+            url: result.payUrl,
+            orderId: result.orderId,
+            requestId: result.requestId,
+        });
     }
     catch (err) {
         console.error('[createCheckout Error]:', err);
@@ -21,12 +26,13 @@ export const createCheckout = async (req, res) => {
 };
 export const fulfillCheckout = async (req, res) => {
     try {
-        const { sessionId, orgId, planId, billingCycle } = req.body;
-        if (!sessionId || !orgId || !planId) {
-            res.status(400).json({ message: 'Missing fulfillment data' });
+        const { orderId, sessionId, orgId, planId, billingCycle, paymentMethod } = req.body;
+        const resolvedOrderId = orderId || sessionId;
+        if (!resolvedOrderId || !orgId || !planId) {
+            res.status(400).json({ message: 'Missing fulfillment data (orderId, orgId, planId required)' });
             return;
         }
-        const subscription = await fulfillSubscription(sessionId, orgId, planId, billingCycle);
+        const subscription = await fulfillSubscription(resolvedOrderId, orgId, planId, billingCycle, paymentMethod || PaymentMethod.MOCK);
         res.status(200).json(subscription);
     }
     catch (err) {
@@ -34,7 +40,47 @@ export const fulfillCheckout = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
-// ——— Handlers ———
+// ─── MoMo IPN Callback ─────────────────────────────────────────────
+/**
+ * POST /subscriptions/momo-ipn
+ * Called by MoMo servers (server-to-server). No auth required.
+ */
+export const handleMomoIPN = async (req, res) => {
+    try {
+        console.log('[MoMo IPN] Received callback:', req.body);
+        const result = await handlePaymentCallback(PaymentMethod.MOMO, req.body);
+        if (result.success) {
+            console.log('[MoMo IPN] Payment fulfilled successfully');
+            // MoMo expects HTTP 204 for successful IPN processing
+            res.status(204).send();
+        }
+        else {
+            console.warn('[MoMo IPN] Payment not successful:', result.message);
+            res.status(200).json({ message: result.message });
+        }
+    }
+    catch (err) {
+        console.error('[MoMo IPN Error]:', err);
+        // Return 200 to prevent MoMo retries on processing errors
+        res.status(200).json({ message: err.message });
+    }
+};
+// ─── Payment Methods ────────────────────────────────────────────────
+/**
+ * GET /subscriptions/payment-methods
+ * List available payment gateways.
+ */
+export const getPaymentMethods = async (_req, res) => {
+    try {
+        const gateways = getAvailableGateways();
+        res.status(200).json(gateways);
+    }
+    catch (err) {
+        console.error('[getPaymentMethods Error]:', err);
+        res.status(500).json({ message: err.message });
+    }
+};
+// ─── Existing Handlers ──────────────────────────────────────────────
 /**
  * GET /subscriptions/plans — List all active plans with their features.
  */
@@ -74,9 +120,9 @@ export const getCurrentSubscription = async (req, res) => {
             res.status(404).json({ message: 'No active subscription found' });
             return;
         }
-        // Attach feature statuses
         const features = await getOrgFeatures(orgId);
-        res.status(200).json({ ...subscription, featureStatuses: features });
+        const usage = await getUsage(orgId);
+        res.status(200).json({ ...subscription, featureStatuses: features, usageMetrics: usage });
     }
     catch (err) {
         console.error('[getCurrentSubscription Error]:', err);
@@ -85,7 +131,6 @@ export const getCurrentSubscription = async (req, res) => {
 };
 /**
  * POST /subscriptions — Create or upgrade a subscription.
- * Body: { planId, billingCycle? }
  */
 export const createSubscription = async (req, res) => {
     try {
@@ -95,18 +140,15 @@ export const createSubscription = async (req, res) => {
             return;
         }
         const { planId, billingCycle } = req.body;
-        // Verify plan exists
         const plan = await prisma.plan.findUnique({ where: { id: Number(planId) } });
         if (!plan || !plan.isActive) {
             res.status(404).json({ message: 'Plan not found or inactive' });
             return;
         }
-        // Cancel any existing active subscription
         await prisma.subscription.updateMany({
             where: { organizationId: orgId, status: SubscriptionStatus.ACTIVE },
             data: { status: SubscriptionStatus.CANCELED, canceledAt: new Date() },
         });
-        // Compute billing period
         const now = new Date();
         const cycle = billingCycle ?? BillingCycle.MONTHLY;
         const periodEnd = new Date(now);

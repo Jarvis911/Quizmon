@@ -12,8 +12,18 @@ export function handleStartMatch(io: Server, socket: CustomSocket) {
             return socket.emit('error', 'Match not found');
         }
 
-        if (socket.userId !== matchState.hostId) {
+        if (!socket.userId) {
+            return socket.emit('error', 'User ID not set. Please wait to join completely.');
+        }
+
+        if (Number(socket.userId) !== Number(matchState.hostId)) {
             return socket.emit('error', 'Only host can start the match');
+        }
+
+        // Verify the host is still technically in the lobby list
+        const isPlayer = matchState.players.some(p => p.userId === socket.userId);
+        if (!isPlayer) {
+             return socket.emit('error', 'User is not joined completely into the lobby.');
         }
 
         if (matchState.state !== 'waiting') {

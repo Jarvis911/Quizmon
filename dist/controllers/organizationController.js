@@ -2,6 +2,7 @@ import { OrganizationRole } from '@prisma/client';
 import prisma from '../prismaClient.js';
 import { createOrganization, getOrganizations, getOrganizationById, updateOrganization, addMember, removeMember, updateMemberRole, getMemberRole, findUserByEmail, searchUsers, } from '../services/organizationService.js';
 import { getOrgFeatures as getOrgFeaturesService } from '../services/featureGateService.js';
+import { getUsage } from '../services/usageService.js';
 // ——— Authorization helper ———
 const requireOrgAdmin = async (orgId, userId) => {
     const role = await getMemberRole(orgId, userId);
@@ -183,8 +184,34 @@ export const getOrgFeatures = async (req, res) => {
             res.status(403).json({ message: 'Access denied' });
             return;
         }
-        const features = await getOrgFeaturesService(orgId);
-        res.status(200).json(features);
+        // Fetch features (array format: { featureKey, enabled, limit })
+        const featuresArray = await getOrgFeaturesService(orgId);
+        // Fetch current usage for the period
+        const usageMetrics = await getUsage(orgId);
+        // Usage keys map loosely to feature keys, we can write a helper to match them,
+        // or just rely on finding usages by comparing lowercase key.
+        const usageMap = {};
+        for (const metric of usageMetrics) {
+            usageMap[metric.key] = metric.value;
+        }
+        // Feature key to Metric key mapping
+        const featureToUsageKey = {
+            'AI_GENERATION': 'ai_generations',
+            'UNLIMITED_MATCHES': 'matches_hosted',
+            'MAX_PLAYERS_PER_MATCH': 'max_players' // Not tracked per period, but fits the pattern
+        };
+        // Construct dictionary for frontend FeatureContext
+        const featuresDict = {};
+        for (const feat of featuresArray) {
+            const usageKey = featureToUsageKey[feat.featureKey] || feat.featureKey.toLowerCase();
+            const currentUsage = usageMap[usageKey] || 0;
+            featuresDict[feat.featureKey] = {
+                enabled: feat.enabled,
+                limit: feat.limit,
+                current: currentUsage
+            };
+        }
+        res.status(200).json(featuresDict);
     }
     catch (err) {
         console.error('[getOrgFeatures Error]:', err);
