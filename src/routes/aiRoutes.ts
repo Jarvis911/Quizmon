@@ -26,12 +26,12 @@ router.put('/jobs/:id/status', authMiddleware, orgMiddleware, updateJobStatus);
 router.delete('/jobs/:id', authMiddleware, orgMiddleware, deleteJob);
 
 // Generated question management
-router.put('/jobs/:id/questions/:questionId', authMiddleware, updateGeneratedQuestion);
-router.put('/jobs/:id/questions/:questionId/content', authMiddleware, updateGeneratedQuestionContent);
-router.post('/jobs/:id/questions/:questionId/regenerate', authMiddleware, regenerateGeneratedQuestion);
-router.delete('/jobs/:id/questions/:questionId', authMiddleware, deleteGeneratedQuestion);
+router.put('/jobs/:id/questions/:questionId', authMiddleware, orgMiddleware, updateGeneratedQuestion);
+router.put('/jobs/:id/questions/:questionId/content', authMiddleware, orgMiddleware, updateGeneratedQuestionContent);
+router.post('/jobs/:id/questions/:questionId/regenerate', authMiddleware, orgMiddleware, regenerateGeneratedQuestion);
+router.delete('/jobs/:id/questions/:questionId', authMiddleware, orgMiddleware, deleteGeneratedQuestion);
 
 // Approve all and create quiz
-router.post('/jobs/:id/approve-all', authMiddleware, approveAllAndCreateQuiz);
+router.post('/jobs/:id/approve-all', authMiddleware, orgMiddleware, approveAllAndCreateQuiz);
 
 export default router;
