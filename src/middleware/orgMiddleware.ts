@@ -50,10 +50,27 @@ const orgMiddleware: RequestHandler = async (req, res, next) => {
         }
 
         // Fall back to user's default (first) organization
-        const defaultMembership = await prisma.organizationMember.findFirst({
+        let defaultMembership = await prisma.organizationMember.findFirst({
             where: { userId: Number(userId) },
             orderBy: { joinedAt: 'asc' },
         });
+
+        // SELF-HEALING: If user has no organization, create one automatically
+        if (!defaultMembership) {
+            try {
+                const user = await prisma.user.findUnique({ where: { id: Number(userId) } });
+                const { createOrganization } = await import('../services/organizationService.js');
+                const orgName = user?.username ? `${user.username}'s Org` : "Personal Organization";
+                const newOrg = await createOrganization(orgName, Number(userId));
+                
+                req.organizationId = newOrg.id;
+                next();
+                return;
+            } catch (orgErr) {
+                console.error('[orgMiddleware] Self-healing failed:', orgErr);
+                // Continue to next() even if self-healing fails, it will be caught by the controller
+            }
+        }
 
         if (defaultMembership) {
             req.organizationId = defaultMembership.organizationId;
