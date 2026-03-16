@@ -286,6 +286,11 @@ model AIGenerationJob {
   targetQuizId Int? // if adding to existing quiz
   targetQuiz   Quiz?   @relation(fields: [targetQuizId], references: [id], onDelete: SetNull)
 
+  // AI suggestions for new quiz
+  suggestedTitle       String?
+  suggestedDescription String?
+  suggestedCategoryId  Int?
+
   // Job metadata
   status        AIGenerationStatus @default(PENDING)
   questionCount Int                @default(10)

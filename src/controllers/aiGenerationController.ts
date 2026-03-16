@@ -89,16 +89,25 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
 
         // Generate questions with AI
         try {
-            const generatedQuestions = await generateQuestions(
+            const generationResult = await generateQuestions(
                 instruction || null,
                 pdfText,
                 count,
                 types
             );
 
+            // Try to match suggested category to an existing one
+            let suggestedCategoryId: number | undefined;
+            const matchedCategory = await prisma.quizCategory.findFirst({
+                where: { name: { contains: generationResult.suggestedCategory, mode: 'insensitive' } }
+            });
+            if (matchedCategory) {
+                suggestedCategoryId = matchedCategory.id;
+            }
+
             // Save generated questions
             await prisma.aIGeneratedQuestion.createMany({
-                data: generatedQuestions.map(q => ({
+                data: generationResult.questions.map(q => ({
                     jobId: job.id,
                     questionText: q.questionText,
                     questionType: q.questionType,
@@ -110,7 +119,12 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
             // Update job status
             await prisma.aIGenerationJob.update({
                 where: { id: job.id },
-                data: { status: AIGenerationStatus.COMPLETED },
+                data: { 
+                    status: AIGenerationStatus.COMPLETED,
+                    suggestedTitle: generationResult.suggestedTitle,
+                    suggestedDescription: generationResult.suggestedDescription,
+                    suggestedCategoryId: suggestedCategoryId || null,
+                },
             });
 
             // Track usage after successful generation
