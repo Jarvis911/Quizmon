@@ -327,11 +327,12 @@ export const updateReorderQuestion = async (req: Request, res: Response): Promis
 
 // Location question
 export const createLocationQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, correctLatitude, correctLongitude, videos, imageEffect } = req.body as {
+    const { quizId, text, correctLatitude, correctLongitude, optionsData, videos, imageEffect } = req.body as {
         quizId: string;
         text: string;
         correctLatitude: string;
         correctLongitude: string;
+        optionsData?: any;
         videos?: string;
         imageEffect?: string;
     };
@@ -344,12 +345,21 @@ export const createLocationQuestion = async (req: Request, res: Response): Promi
             imageEffect
         );
 
+        let parsedOptionsData: any = {};
+        try {
+            if (optionsData) parsedOptionsData = typeof optionsData === 'string' ? JSON.parse(optionsData) : optionsData;
+        } catch(e) {}
+
         const questionData: QuestionData = {
             quizId: parseInt(quizId),
             text,
             type: 'LOCATION' as QuestionType,
             correctLatitude: parseFloat(correctLatitude),
             correctLongitude: parseFloat(correctLongitude),
+            radius1000: parsedOptionsData.radius1000,
+            radius750: parsedOptionsData.radius750,
+            radius500: parsedOptionsData.radius500,
+            mapType: parsedOptionsData.mapType,
             media: questionMedia,
         };
 
@@ -363,11 +373,12 @@ export const createLocationQuestion = async (req: Request, res: Response): Promi
 };
 
 export const updateLocationQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, correctLatitude, correctLongitude, videos, imageEffect } = req.body as {
+    const { quizId, text, correctLatitude, correctLongitude, optionsData, videos, imageEffect } = req.body as {
         quizId: string;
         text: string;
         correctLatitude: string;
         correctLongitude: string;
+        optionsData?: any;
         videos?: string;
         imageEffect?: string;
     };
@@ -381,12 +392,21 @@ export const updateLocationQuestion = async (req: Request, res: Response): Promi
             imageEffect
         );
 
+        let parsedOptionsData: any = {};
+        try {
+            if (optionsData) parsedOptionsData = typeof optionsData === 'string' ? JSON.parse(optionsData) : optionsData;
+        } catch(e) {}
+
         const questionData: QuestionData = {
             quizId: parseInt(quizId),
             text,
             type: 'LOCATION' as QuestionType,
             correctLatitude: parseFloat(correctLatitude),
             correctLongitude: parseFloat(correctLongitude),
+            radius1000: parsedOptionsData.radius1000,
+            radius750: parsedOptionsData.radius750,
+            radius500: parsedOptionsData.radius500,
+            mapType: parsedOptionsData.mapType,
             media: questionMedia,
         };
 

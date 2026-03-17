@@ -42,10 +42,20 @@ export const createMatch = async (req: Request, res: Response): Promise<void> =>
             return;
         }
 
+        // Generate a random unique 6-digit PIN
+        let pin: string = "";
+        let isPinUnique = false;
+        while (!isPinUnique) {
+            pin = Math.floor(100000 + Math.random() * 900000).toString();
+            const existingMatch = await prisma.match.findUnique({ where: { pin } });
+            if (!existingMatch) isPinUnique = true;
+        }
+
         const match = await prisma.match.create({
             data: {
                 quizId: Number(quizId),
                 hostId: Number(hostId),
+                pin,
                 timePerQuestion: timePerQuestion ? Number(timePerQuestion) : null,
                 backgroundUrl: backgroundUrl || null,
                 musicUrl: musicUrl || null,
@@ -67,35 +77,66 @@ export const createMatch = async (req: Request, res: Response): Promise<void> =>
 
 export const getMatch = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
 
-        const match = await prisma.match.findUnique({
-            where: {
-                id: Number(id),
-            },
-            include: {
-                quiz: {
-                    include: {
-                        questions: {
-                            include: {
-                                media: true,
-                                options: true,
+        // Try finding by internal ID first
+        let match = null;
+        if (!isNaN(Number(id))) {
+            match = await prisma.match.findUnique({
+                where: { id: Number(id) },
+                include: {
+                    quiz: {
+                        include: {
+                            questions: {
+                                include: {
+                                    media: true,
+                                    options: true,
+                                },
+                            },
+                            category: {
+                                select: { id: true, name: true },
                             },
                         },
-                        category: {
-                            select: { id: true, name: true },
+                    },
+                    host: { select: { id: true, username: true } },
+                    participants: {
+                        include: {
+                            user: { select: { id: true, username: true } },
                         },
                     },
+                    matchResults: true,
                 },
-                host: { select: { id: true, username: true } },
-                participants: {
-                    include: {
-                        user: { select: { id: true, username: true } },
+            });
+        }
+
+        // If not found by ID, try finding by 6-digit PIN
+        if (!match && id.length === 6) {
+            match = await prisma.match.findUnique({
+                where: { pin: id },
+                include: {
+                    quiz: {
+                        include: {
+                            questions: {
+                                include: {
+                                    media: true,
+                                    options: true,
+                                },
+                            },
+                            category: {
+                                select: { id: true, name: true },
+                            },
+                        },
                     },
+                    host: { select: { id: true, username: true } },
+                    participants: {
+                        include: {
+                            user: { select: { id: true, username: true } },
+                        },
+                    },
+                    matchResults: true,
                 },
-                matchResults: true,
-            },
-        });
+            });
+        }
 
         res.status(200).json(match);
     } catch (err) {
@@ -105,7 +146,7 @@ export const getMatch = async (req: Request, res: Response): Promise<void> => {
 
 export const updateMatch = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const data = req.body as UpdateMatchBody;
 
         const match = await prisma.match.update({
@@ -141,7 +182,7 @@ export const updateMatch = async (req: Request, res: Response): Promise<void> =>
 
 export const deleteMatch = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const userId = req.userId;
 
         const match = await prisma.match.findUnique({

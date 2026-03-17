@@ -28,12 +28,16 @@ export interface QuestionData {
     correctAnswer?: string;
     correctLatitude?: number;
     correctLongitude?: number;
+    radius1000?: number;
+    radius750?: number;
+    radius500?: number;
+    mapType?: string;
 }
 
 /** Build the `data` JSON column value based on question type */
 function buildQuestionData(
     type: QuestionType,
-    fields: Pick<QuestionData, 'minValue' | 'maxValue' | 'correctValue' | 'correctAnswer' | 'correctLatitude' | 'correctLongitude'>
+    fields: Pick<QuestionData, 'minValue' | 'maxValue' | 'correctValue' | 'correctAnswer' | 'correctLatitude' | 'correctLongitude' | 'radius1000' | 'radius750' | 'radius500' | 'mapType'>
 ): Prisma.InputJsonValue | undefined {
     switch (type) {
         case 'RANGE':
@@ -48,6 +52,10 @@ function buildQuestionData(
             return {
                 correctLatitude: fields.correctLatitude!,
                 correctLongitude: fields.correctLongitude!,
+                radius1000: fields.radius1000,
+                radius750: fields.radius750,
+                radius500: fields.radius500,
+                mapType: fields.mapType,
             };
         default:
             // BUTTONS, CHECKBOXES, REORDER — no type-specific data needed
@@ -69,10 +77,15 @@ export const createQuestion = async (questionData: QuestionData) => {
             correctAnswer,
             correctLatitude,
             correctLongitude,
+            radius1000,
+            radius750,
+            radius500,
+            mapType,
         } = questionData;
 
         const dataJson = buildQuestionData(type, {
             minValue, maxValue, correctValue, correctAnswer, correctLatitude, correctLongitude,
+            radius1000, radius750, radius500, mapType
         });
 
         const question = await prisma.question.create({
@@ -128,11 +141,16 @@ export const updateQuestion = async (id: number, questionData: Partial<QuestionD
             correctAnswer,
             correctLatitude,
             correctLongitude,
+            radius1000,
+            radius750,
+            radius500,
+            mapType,
         } = questionData;
 
         const dataJson = type
             ? buildQuestionData(type, {
                   minValue, maxValue, correctValue, correctAnswer, correctLatitude, correctLongitude,
+                  radius1000, radius750, radius500, mapType
               })
             : undefined;
 

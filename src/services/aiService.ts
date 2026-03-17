@@ -24,6 +24,8 @@ const QUESTION_TYPE_DESCRIPTIONS: Record<string, string> = {
     CHECKBOXES: 'Multiple choice with one or more correct answers. Provide 4 options with "text" and "isCorrect" (boolean) fields.',
     TYPEANSWER: 'User types the answer. Provide a "correctAnswer" string field.',
     REORDER: 'User reorders items in correct order. Provide 4-6 items with "text" and "order" (number, starting at 1) fields.',
+    RANGE: 'User selects a value on a slider. Provide "minValue" (number), "maxValue" (number), and "correctValue" (number) fields.',
+    LOCATION: 'User picks a location on a map. Provide "correctLatitude" (number) and "correctLongitude" (number) fields.',
 };
 
 function buildPrompt(
@@ -64,7 +66,7 @@ The object must have this structure:
   "questions": [
     {
       "questionText": "The question text",
-      "questionType": "BUTTONS|CHECKBOXES|TYPEANSWER|REORDER",
+      "questionType": "BUTTONS|CHECKBOXES|TYPEANSWER|REORDER|RANGE|LOCATION",
       "optionsData": {
         "options": [{"text": "...", "isCorrect": true/false, "order": null}]
       }
@@ -73,9 +75,21 @@ The object must have this structure:
   ]
 }
 
-For TYPEANSWER type, optionsData should be:
 {
   "correctAnswer": "the answer"
+}
+
+For RANGE type, optionsData should be:
+{
+  "minValue": 0,
+  "maxValue": 100,
+  "correctValue": 50
+}
+
+For LOCATION type, optionsData should be:
+{
+  "correctLatitude": 10.7769,
+  "correctLongitude": 106.7009
 }
 
 JSON object:`;

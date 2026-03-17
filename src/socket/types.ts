@@ -31,6 +31,8 @@ export interface Question {
         minValue?: number; maxValue?: number; correctValue?: number;  // RANGE
         correctAnswer?: string;                                       // TYPEANSWER
         correctLatitude?: number; correctLongitude?: number;           // LOCATION
+        radius1000?: number; radius750?: number; radius500?: number;  // LOCATION Scoring
+        mapType?: 'SIMPLE' | 'SATELLITE';                             // LOCATION Style
     } | null;
 }
 

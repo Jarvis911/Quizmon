@@ -465,6 +465,17 @@ export const approveAllAndCreateQuiz = async (req: Request, res: Response): Prom
                 }));
             } else if (genQ.questionType === 'TYPEANSWER') {
                 questionData.correctAnswer = (optData.correctAnswer as string) || (optData.answer as string) || '';
+            } else if (genQ.questionType === 'RANGE') {
+                questionData.minValue = Number(optData.minValue) || 0;
+                questionData.maxValue = Number(optData.maxValue) || 100;
+                questionData.correctValue = Number(optData.correctValue) || 50;
+            } else if (genQ.questionType === 'LOCATION') {
+                questionData.correctLatitude = Number(optData.correctLatitude);
+                questionData.correctLongitude = Number(optData.correctLongitude);
+                if ('radius1000' in optData) questionData.radius1000 = Number(optData.radius1000);
+                if ('radius750' in optData) questionData.radius750 = Number(optData.radius750);
+                if ('radius500' in optData) questionData.radius500 = Number(optData.radius500);
+                if ('mapType' in optData) questionData.mapType = String(optData.mapType);
             }
 
             const createdQ = await createQuestionService(questionData);

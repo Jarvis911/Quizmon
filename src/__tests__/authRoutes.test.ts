@@ -28,6 +28,8 @@ describe('Auth Routes', () => {
                 email: 'test@example.com',
                 password: 'hashedpassword',
                 googleId: null,
+                avatarUrl: null,
+                bio: null,
                 createdAt: new Date(),
                 updatedAt: new Date()
             };
