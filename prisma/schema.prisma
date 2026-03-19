@@ -22,6 +22,7 @@ model User {
 
   avatarUrl String?
   bio       String?
+  isAdmin   Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -32,6 +33,7 @@ model User {
   matchResults      MatchResult[]
   matchParticipants MatchParticipant[]
   aiGenerationJobs  AIGenerationJob[]
+  systemReports     SystemReport[]
 
   classrooms        Classroom[]
   classroomMembers  ClassroomMember[]
@@ -299,6 +301,7 @@ model AIGenerationJob {
   status        AIGenerationStatus @default(PENDING)
   questionCount Int                @default(10)
   errorMessage  String?
+  totalTokens   Int?
 
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -601,3 +604,42 @@ model UsageMetric {
 
 
 
+
+// ==================== ADMIN & SYSTEM MODELS ====================
+
+model AIModelConfig {
+  id          Int      @id @default(autoincrement())
+  featureName String   @unique // e.g., 'QUIZ_GENERATION', 'AGENT_CHAT'
+  modelName   String   // e.g., 'gemini-2.5-flash', 'gemini-3.0-flash'
+  isActive    Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}
+
+enum ReportType {
+  QUIZ
+  USER
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+model SystemReport {
+  id         Int          @id @default(autoincrement())
+  reportType ReportType
+  targetId   Int          // The ID of the Quiz or User being reported
+  reason     String       // User's description of the issue
+
+  status     ReportStatus @default(PENDING)
+
+  reporterId Int
+  reporter   User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([status])
+}

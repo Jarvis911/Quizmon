@@ -1,12 +1,28 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { QuestionType } from '@prisma/client';
+import prisma from '../prismaClient.js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+export async function getModelForFeature(featureName: string, defaultModel = 'gemini-2.5-flash'): Promise<string> {
+    try {
+        const config = await prisma.aiModelConfig.findUnique({
+            where: { featureName }
+        });
+        if (config && config.isActive) {
+            return config.modelName;
+        }
+    } catch (e) {
+        console.error('Error fetching AI model config:', e);
+    }
+    return defaultModel;
+}
 
 export interface GeneratedQuestionData {
     questionText: string;
     questionType: QuestionType;
     optionsData: Record<string, unknown>;
+    tokenUsage?: number;
 }
 
 export interface AIQuizMetadata {
@@ -17,6 +33,7 @@ export interface AIQuizMetadata {
 
 export interface AIGenerationResponse extends AIQuizMetadata {
     questions: GeneratedQuestionData[];
+    tokenUsage?: number;
 }
 
 const QUESTION_TYPE_DESCRIPTIONS: Record<string, string> = {
@@ -101,13 +118,15 @@ export async function generateQuestions(
     questionCount: number,
     questionTypes: QuestionType[]
 ): Promise<AIGenerationResponse> {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const modelName = await getModelForFeature('QUIZ_GENERATION');
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const prompt = buildPrompt(instruction, pdfText, questionCount, questionTypes);
 
     const result = await model.generateContent(prompt);
     const response = result.response;
     const text = response.text();
+    const tokenUsage = response.usageMetadata?.totalTokenCount || 0;
 
     // Clean up response — remove markdown code block if present
     const cleaned = text
@@ -126,7 +145,8 @@ export async function generateQuestions(
             questionText: q.questionText,
             questionType: q.questionType as QuestionType,
             optionsData: q.optionsData,
-        }))
+        })),
+        tokenUsage
     };
 }
 
@@ -135,7 +155,8 @@ export async function regenerateQuestion(
     userFeedback: string | null,
     instruction: string | null
 ): Promise<GeneratedQuestionData> {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const modelName = await getModelForFeature('QUESTION_REGENERATION');
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const typeDesc = QUESTION_TYPE_DESCRIPTIONS[originalQuestion.questionType] || originalQuestion.questionType;
 
@@ -169,11 +190,13 @@ JSON:`;
         .trim();
 
     const question: GeneratedQuestionData = JSON.parse(cleaned);
+    const tokenUsage = result.response.usageMetadata?.totalTokenCount || 0;
 
     return {
         questionText: question.questionText,
         questionType: question.questionType as QuestionType,
         optionsData: question.optionsData,
+        tokenUsage
     };
 }
 
@@ -189,7 +212,8 @@ export async function processAgentChat(
     history: { role: 'user' | 'model'; parts: { text: string }[] }[],
     message: string
 ): Promise<AIGenerationResponse> {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const modelName = await getModelForFeature('AGENT_CHAT');
+    const model = genAI.getGenerativeModel({ model: modelName });
     const chat = model.startChat({
         history: history,
         generationConfig: {
@@ -236,6 +260,9 @@ Rules:
 
     const text = result.response.text();
     const data: AIGenerationResponse = JSON.parse(text);
+    const tokenUsage = result.response.usageMetadata?.totalTokenCount || 0;
+
+    data.tokenUsage = tokenUsage;
 
     return data;
 }
