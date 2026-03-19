@@ -558,3 +558,75 @@ export const deleteJob = async (req: Request, res: Response): Promise<void> => {
         res.status(500).json(err);
     }
 };
+
+// Finalize and save quiz from agentic data
+export const finalizeAgenticQuiz = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { title, description, categoryId, questions } = req.body as {
+            title: string;
+            description: string;
+            categoryId: number;
+            questions: any[];
+        };
+        const userId = req.userId;
+
+        // Create quiz
+        const quiz = await prisma.quiz.create({
+            data: {
+                title,
+                description: description || title,
+                creatorId: Number(userId),
+                categoryId: Number(categoryId),
+                isPublic: false,
+            },
+        });
+
+        // Create actual questions
+        for (const genQ of questions) {
+            const optData = genQ.optionsData as Record<string, unknown>;
+
+            const questionData: QuestionData = {
+                quizId: quiz.id,
+                text: genQ.questionText,
+                type: genQ.questionType,
+            };
+
+            if (genQ.questionType === 'BUTTONS' || genQ.questionType === 'CHECKBOXES') {
+                const options = (optData.options as Array<{ text: string; isCorrect?: any }>) || [];
+                questionData.options = options.map(o => ({
+                    text: o.text,
+                    isCorrect: o.isCorrect === true || String(o.isCorrect) === 'true',
+                }));
+                if (questionData.options.length > 0 && !questionData.options.some(o => o.isCorrect)) {
+                    questionData.options[0].isCorrect = true;
+                }
+            } else if (genQ.questionType === 'REORDER') {
+                const options = (optData.options as Array<{ text: string; order?: number }>) || [];
+                questionData.options = options.map((o, idx) => ({
+                    text: o.text,
+                    order: o.order || (idx + 1),
+                }));
+            } else if (genQ.questionType === 'TYPEANSWER') {
+                questionData.correctAnswer = (optData.correctAnswer as string) || (optData.answer as string) || '';
+            } else if (genQ.questionType === 'RANGE') {
+                questionData.minValue = Number(optData.minValue) || 0;
+                questionData.maxValue = Number(optData.maxValue) || 100;
+                questionData.correctValue = Number(optData.correctValue) || 50;
+            } else if (genQ.questionType === 'LOCATION') {
+                questionData.correctLatitude = Number(optData.correctLatitude);
+                questionData.correctLongitude = Number(optData.correctLongitude);
+                if ('radius1000' in optData) questionData.radius1000 = Number(optData.radius1000);
+                if ('radius750' in optData) questionData.radius750 = Number(optData.radius750);
+                if ('radius500' in optData) questionData.radius500 = Number(optData.radius500);
+                if ('mapType' in optData) questionData.mapType = String(optData.mapType);
+            }
+
+            await createQuestionService(questionData);
+        }
+
+        res.status(201).json(quiz);
+    } catch (err) {
+        console.error('[finalizeAgenticQuiz Error]:', err);
+        res.status(500).json(err);
+    }
+};

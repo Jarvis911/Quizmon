@@ -13,6 +13,7 @@ import {
     approveAllAndCreateQuiz,
     updateJobStatus,
     deleteJob,
+    finalizeAgenticQuiz,
 } from '../controllers/aiGenerationController.js';
 
 const router: Router = Router();
@@ -33,5 +34,8 @@ router.delete('/jobs/:id/questions/:questionId', authMiddleware, orgMiddleware, 
 
 // Approve all and create quiz
 router.post('/jobs/:id/approve-all', authMiddleware, orgMiddleware, approveAllAndCreateQuiz);
+
+// Agentic Workspace routes
+router.post('/agentic/save', authMiddleware, orgMiddleware, finalizeAgenticQuiz);
 
 export default router;

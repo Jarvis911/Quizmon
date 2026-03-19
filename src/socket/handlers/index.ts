@@ -9,3 +9,4 @@ export { handleUpdateMatchSettings } from './updateMatchSettingsHandler.js';
 export { handleSurrender } from './surrenderHandler.js';
 export { handleLeaveMatch } from './leaveMatchHandler.js';
 export { handleCancelMatch } from './cancelMatchHandler.js';
+export { handleAgentChat } from './agentChatHandler.js';

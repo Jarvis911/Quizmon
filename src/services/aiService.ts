@@ -135,7 +135,7 @@ export async function regenerateQuestion(
     userFeedback: string | null,
     instruction: string | null
 ): Promise<GeneratedQuestionData> {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const typeDesc = QUESTION_TYPE_DESCRIPTIONS[originalQuestion.questionType] || originalQuestion.questionType;
 
@@ -183,4 +183,59 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
     const pdfParse = (pdfParseModule as any).default || pdfParseModule;
     const data = await pdfParse(buffer);
     return data.text;
+}
+
+export async function processAgentChat(
+    history: { role: 'user' | 'model'; parts: { text: string }[] }[],
+    message: string
+): Promise<AIGenerationResponse> {
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const chat = model.startChat({
+        history: history,
+        generationConfig: {
+            temperature: 1,
+            topP: 0.95,
+            topK: 40,
+            maxOutputTokens: 8192,
+            responseMimeType: "application/json",
+        },
+    });
+
+    const systemPrompt = `You are a Quizmon Agent, an expert in creating engaging and educational quizzes.
+Your goal is to help the user build a quiz step-by-step or all at once.
+You ALWAYS respond with a JSON object representing the CURRENT STATE of the entire quiz.
+
+JSON Structure:
+{
+  "suggestedTitle": "...",
+  "suggestedDescription": "...",
+  "suggestedCategory": "...",
+  "questions": [
+    {
+      "questionText": "...",
+      "questionType": "BUTTONS|CHECKBOXES|TYPEANSWER|REORDER|RANGE|LOCATION",
+      "optionsData": { ... }
+    }
+  ]
+}
+
+Available Question Types:
+${Object.entries(QUESTION_TYPE_DESCRIPTIONS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}
+
+Rules:
+1. If the user asks for new questions, add them to the existing list.
+2. If the user asks to modify a question, update it in the list.
+3. If the user asks to remove a question, delete it.
+4. Keep the output strictly as JSON.
+5. Use the same language as the user.`;
+
+    const result = await chat.sendMessage([
+        { text: systemPrompt },
+        { text: message }
+    ]);
+
+    const text = result.response.text();
+    const data: AIGenerationResponse = JSON.parse(text);
+
+    return data;
 }
