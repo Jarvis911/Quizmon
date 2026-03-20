@@ -6,7 +6,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function getModelForFeature(featureName: string, defaultModel = 'gemini-2.5-flash'): Promise<string> {
     try {
-        const config = await prisma.aiModelConfig.findUnique({
+        const config = await prisma.aIModelConfig.findUnique({
             where: { featureName }
         });
         if (config && config.isActive) {

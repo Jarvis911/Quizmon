@@ -9,3 +9,4 @@ export declare const deleteGeneratedQuestion: (req: Request, res: Response) => P
 export declare const approveAllAndCreateQuiz: (req: Request, res: Response) => Promise<void>;
 export declare const updateJobStatus: (req: Request, res: Response) => Promise<void>;
 export declare const deleteJob: (req: Request, res: Response) => Promise<void>;
+export declare const finalizeAgenticQuiz: (req: Request, res: Response) => Promise<void>;

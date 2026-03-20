@@ -1,7 +1,5 @@
-import { Request, Response } from 'express';
 import prisma from '../prismaClient.js';
-
-export const getDashboardStats = async (req: Request, res: Response) => {
+export const getDashboardStats = async (req, res) => {
     try {
         // Overall stats
         const usersCount = await prisma.user.count();
@@ -9,23 +7,19 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         const activeSubscriptions = await prisma.subscription.count({
             where: { status: 'ACTIVE' }
         });
-
         // Calculate Revenue (Sum of COMPLETED payments)
         const payments = await prisma.payment.aggregate({
             _sum: { amount: true },
             where: { status: 'COMPLETED' }
         });
         const revenue = payments._sum.amount || 0;
-
         // Total AI Jobs 
         const aiJobsCount = await prisma.aIGenerationJob.count();
-
         // Total Tokens Used
         const jobs = await prisma.aIGenerationJob.aggregate({
             _sum: { totalTokens: true }
         });
         const totalTokens = jobs._sum.totalTokens || 0;
-
         res.json({
             users: usersCount,
             quizzes: quizzesCount,
@@ -34,12 +28,12 @@ export const getDashboardStats = async (req: Request, res: Response) => {
             aiJobs: aiJobsCount,
             totalTokens
         });
-    } catch (e: any) {
+    }
+    catch (e) {
         res.status(500).json({ message: e.message });
     }
 };
-
-export const getQuizzes = async (req: Request, res: Response) => {
+export const getQuizzes = async (req, res) => {
     try {
         const quizzes = await prisma.quiz.findMany({
             include: { creator: { select: { username: true, email: true } }, category: true },
@@ -47,34 +41,34 @@ export const getQuizzes = async (req: Request, res: Response) => {
             take: 100
         });
         res.json(quizzes);
-    } catch (e: any) {
+    }
+    catch (e) {
         res.status(500).json({ message: e.message });
     }
 };
-
-export const deleteQuiz = async (req: Request, res: Response) => {
+export const deleteQuiz = async (req, res) => {
     try {
         const id = Number(req.params.id);
         await prisma.quiz.delete({ where: { id } });
         res.json({ message: 'Quiz deleted successfully' });
-    } catch (e: any) {
+    }
+    catch (e) {
         res.status(500).json({ message: e.message });
     }
 };
-
-export const getReports = async (req: Request, res: Response) => {
+export const getReports = async (req, res) => {
     try {
         const reports = await prisma.systemReport.findMany({
             include: { reporter: { select: { username: true, email: true } } },
             orderBy: { createdAt: 'desc' }
         });
         res.json(reports);
-    } catch (e: any) {
+    }
+    catch (e) {
         res.status(500).json({ message: e.message });
     }
 };
-
-export const resolveReport = async (req: Request, res: Response) => {
+export const resolveReport = async (req, res) => {
     try {
         const id = Number(req.params.id);
         const { status } = req.body; // e.g., 'RESOLVED', 'DISMISSED'
@@ -83,12 +77,12 @@ export const resolveReport = async (req: Request, res: Response) => {
             data: { status }
         });
         res.json(report);
-    } catch (e: any) {
+    }
+    catch (e) {
         res.status(500).json({ message: e.message });
     }
 };
-
-export const getUsers = async (req: Request, res: Response) => {
+export const getUsers = async (req, res) => {
     try {
         const users = await prisma.user.findMany({
             select: {
@@ -101,12 +95,12 @@ export const getUsers = async (req: Request, res: Response) => {
             take: 100
         });
         res.json(users);
-    } catch (e: any) {
+    }
+    catch (e) {
         res.status(500).json({ message: e.message });
     }
 };
-
-export const getAIJobs = async (req: Request, res: Response) => {
+export const getAIJobs = async (req, res) => {
     try {
         const jobs = await prisma.aIGenerationJob.findMany({
             include: { user: { select: { username: true, email: true } } },
@@ -114,21 +108,21 @@ export const getAIJobs = async (req: Request, res: Response) => {
             take: 100
         });
         res.json(jobs);
-    } catch (e: any) {
+    }
+    catch (e) {
         res.status(500).json({ message: e.message });
     }
 };
-
-export const getAIConfig = async (req: Request, res: Response) => {
+export const getAIConfig = async (req, res) => {
     try {
         const config = await prisma.aIModelConfig.findMany();
         res.json(config);
-    } catch (e: any) {
+    }
+    catch (e) {
         res.status(500).json({ message: e.message });
     }
 };
-
-export const updateAIConfig = async (req: Request, res: Response) => {
+export const updateAIConfig = async (req, res) => {
     try {
         const { featureName, modelName, isActive } = req.body;
         const config = await prisma.aIModelConfig.upsert({
@@ -137,7 +131,8 @@ export const updateAIConfig = async (req: Request, res: Response) => {
             create: { featureName, modelName, isActive }
         });
         res.json(config);
-    } catch (e: any) {
+    }
+    catch (e) {
         res.status(500).json({ message: e.message });
     }
 };

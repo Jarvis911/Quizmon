@@ -23,6 +23,10 @@ export interface QuestionData {
     correctAnswer?: string;
     correctLatitude?: number;
     correctLongitude?: number;
+    radius1000?: number;
+    radius750?: number;
+    radius500?: number;
+    mapType?: string;
 }
 export declare const createQuestion: (questionData: QuestionData) => Promise<{
     quiz: {

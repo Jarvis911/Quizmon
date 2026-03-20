@@ -56,8 +56,8 @@ export const trackUsage = async (orgId, key, increment = 1) => {
     });
 };
 export async function getUsage(orgId, key) {
-    const { start } = await getCurrentPeriod(orgId, key);
     if (key) {
+        const { start } = await getCurrentPeriod(orgId, key);
         const metric = await prisma.usageMetric.findUnique({
             where: {
                 organizationId_key_periodStart: {
@@ -69,9 +69,33 @@ export async function getUsage(orgId, key) {
         });
         return metric ?? { key, value: 0, periodStart: start };
     }
-    return prisma.usageMetric.findMany({
-        where: { organizationId: orgId, periodStart: start },
+    // If no key: we need to get the "current" metric for EVERY unique key this org has
+    // However, different keys might have different period starts (Daily vs Subscription period)
+    const uniqueKeys = await prisma.usageMetric.findMany({
+        where: { organizationId: orgId },
+        select: { key: true },
+        distinct: ['key'],
     });
+    const results = await Promise.all(uniqueKeys.map(async (uk) => {
+        const { start, end } = await getCurrentPeriod(orgId, uk.key);
+        const metric = await prisma.usageMetric.findUnique({
+            where: {
+                organizationId_key_periodStart: {
+                    organizationId: orgId,
+                    key: uk.key,
+                    periodStart: start,
+                },
+            },
+        });
+        return metric ?? {
+            key: uk.key,
+            value: 0,
+            periodStart: start,
+            periodEnd: end,
+            organizationId: orgId
+        };
+    }));
+    return results;
 }
 ;
 /**

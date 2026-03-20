@@ -1,5 +1,5 @@
 import haversine from 'haversine-distance';
-import { QUESTION_TIME_LIMIT, LOCATION_CORRECT_DISTANCE_THRESHOLD, RANGE_CORRECT_THRESHOLD } from './constants.js';
+import { QUESTION_TIME_LIMIT, LOCATION_RADIUS_1000, LOCATION_RADIUS_750, LOCATION_RADIUS_500, RANGE_CORRECT_THRESHOLD } from './constants.js';
 /**
  * Check if an answer is correct and calculate the result.
  */
@@ -56,9 +56,21 @@ export function checkAnswer(question, answer) {
                     longitude: +answer.lon,
                 };
                 const distance = haversine(correctLatLon, userAns);
+                // Use custom radii if available, else defaults
+                const r1000 = question.data.radius1000 || LOCATION_RADIUS_1000;
+                const r750 = question.data.radius750 || LOCATION_RADIUS_750;
+                const r500 = question.data.radius500 || LOCATION_RADIUS_500;
+                let scoreLevel = 0;
+                if (distance <= r1000)
+                    scoreLevel = 1000;
+                else if (distance <= r750)
+                    scoreLevel = 750;
+                else if (distance <= r500)
+                    scoreLevel = 500;
                 return {
-                    isCorrect: distance <= LOCATION_CORRECT_DISTANCE_THRESHOLD,
+                    isCorrect: scoreLevel > 0,
                     correctLatLon,
+                    score: scoreLevel // Add score to result for Location
                 };
             }
             return { isCorrect: false };

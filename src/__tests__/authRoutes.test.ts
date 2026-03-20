@@ -30,6 +30,7 @@ describe('Auth Routes', () => {
                 googleId: null,
                 avatarUrl: null,
                 bio: null,
+                isAdmin: false,
                 createdAt: new Date(),
                 updatedAt: new Date()
             };

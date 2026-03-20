@@ -15,7 +15,8 @@ async function main() {
         create: {
             username: 'admin',
             email: 'admin@quizmon.com',
-            password: hashedPassword
+            password: hashedPassword,
+            isAdmin: true
         },
     });
 

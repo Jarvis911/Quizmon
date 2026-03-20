@@ -1,6 +1,7 @@
 import { AnswerType, Question } from './types.js';
 interface ScoreResult {
     isCorrect: boolean;
+    score?: number;
     correctLatLon?: {
         latitude?: number;
         longitude?: number;

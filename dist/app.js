@@ -19,6 +19,7 @@ import aiRoutes from './routes/aiRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import organizationRoutes from './routes/organizationRoutes.js';
 import subscriptionRoutes from './routes/subscriptionRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 // Register payment gateways on startup
 import './services/gateways/index.js';
 import swaggerUi from 'swagger-ui-express';
@@ -50,4 +51,5 @@ app.use('/ai', aiRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/organizations', organizationRoutes);
 app.use('/subscriptions', subscriptionRoutes);
+app.use('/admin', adminRoutes);
 export default app;

@@ -205,16 +205,26 @@ export const updateReorderQuestion = async (req, res) => {
 };
 // Location question
 export const createLocationQuestion = async (req, res) => {
-    const { quizId, text, correctLatitude, correctLongitude, videos, imageEffect } = req.body;
+    const { quizId, text, correctLatitude, correctLongitude, optionsData, videos, imageEffect } = req.body;
     const files = req.files;
     try {
         const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
+        let parsedOptionsData = {};
+        try {
+            if (optionsData)
+                parsedOptionsData = typeof optionsData === 'string' ? JSON.parse(optionsData) : optionsData;
+        }
+        catch (e) { }
         const questionData = {
             quizId: parseInt(quizId),
             text,
             type: 'LOCATION',
             correctLatitude: parseFloat(correctLatitude),
             correctLongitude: parseFloat(correctLongitude),
+            radius1000: parsedOptionsData.radius1000,
+            radius750: parsedOptionsData.radius750,
+            radius500: parsedOptionsData.radius500,
+            mapType: parsedOptionsData.mapType,
             media: questionMedia,
         };
         const newQuestion = await createQuestionService(questionData);
@@ -227,17 +237,27 @@ export const createLocationQuestion = async (req, res) => {
     }
 };
 export const updateLocationQuestion = async (req, res) => {
-    const { quizId, text, correctLatitude, correctLongitude, videos, imageEffect } = req.body;
+    const { quizId, text, correctLatitude, correctLongitude, optionsData, videos, imageEffect } = req.body;
     const files = req.files;
     const { id } = req.params;
     try {
         const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect);
+        let parsedOptionsData = {};
+        try {
+            if (optionsData)
+                parsedOptionsData = typeof optionsData === 'string' ? JSON.parse(optionsData) : optionsData;
+        }
+        catch (e) { }
         const questionData = {
             quizId: parseInt(quizId),
             text,
             type: 'LOCATION',
             correctLatitude: parseFloat(correctLatitude),
             correctLongitude: parseFloat(correctLongitude),
+            radius1000: parsedOptionsData.radius1000,
+            radius750: parsedOptionsData.radius750,
+            radius500: parsedOptionsData.radius500,
+            mapType: parsedOptionsData.mapType,
             media: questionMedia,
         };
         const updatedQuestion = await updateQuestionService(Number(id), questionData);

@@ -1,4 +1,10 @@
 import prisma from '../prismaClient.js';
+import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 export const getUserStats = async (req, res) => {
     try {
         const userId = Number(req.userId);
@@ -68,5 +74,87 @@ export const getUserStats = async (req, res) => {
     catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Lỗi khi thống kê người dùng' });
+    }
+};
+export const updateProfile = async (req, res) => {
+    try {
+        const userId = Number(req.userId);
+        const { username, avatarUrl, bio, oldPassword, newPassword } = req.body;
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            res.status(404).json({ message: 'Người dùng không tồn tại' });
+            return;
+        }
+        const updateData = {};
+        if (username)
+            updateData.username = username;
+        if (avatarUrl !== undefined)
+            updateData.avatarUrl = avatarUrl;
+        if (bio !== undefined)
+            updateData.bio = bio;
+        if (newPassword) {
+            if (!oldPassword) {
+                res.status(400).json({ message: 'Vui lòng nhập mật khẩu cũ' });
+                return;
+            }
+            if (!user.password || !bcrypt.compareSync(oldPassword, user.password)) {
+                res.status(400).json({ message: 'Mật khẩu cũ không chính xác' });
+                return;
+            }
+            updateData.password = bcrypt.hashSync(newPassword, 8);
+        }
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: updateData,
+            select: {
+                id: true,
+                username: true,
+                email: true,
+                avatarUrl: true,
+                bio: true,
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+        res.status(200).json({
+            message: 'Cập nhật trang cá nhân thành công',
+            user: updatedUser
+        });
+    }
+    catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Lỗi khi cập nhật trang cá nhân' });
+    }
+};
+export const uploadAvatar = async (req, res) => {
+    try {
+        const userId = Number(req.userId);
+        if (!req.file) {
+            res.status(400).json({ message: 'Vui lòng chọn ảnh' });
+            return;
+        }
+        const fileName = `avatar-${userId}-${Date.now()}${path.extname(req.file.originalname)}`;
+        const uploadPath = path.join(__dirname, '../../public/uploads/avatars', fileName);
+        fs.writeFileSync(uploadPath, req.file.buffer);
+        const avatarUrl = `/uploads/avatars/${fileName}`;
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: { avatarUrl },
+            select: {
+                id: true,
+                username: true,
+                email: true,
+                avatarUrl: true,
+                bio: true,
+            }
+        });
+        res.status(200).json({
+            message: 'Tải ảnh đại diện thành công',
+            user: updatedUser
+        });
+    }
+    catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Lỗi khi tải ảnh đại diện' });
     }
 };

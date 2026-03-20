@@ -39,6 +39,10 @@ export interface Question {
         correctAnswer?: string;
         correctLatitude?: number;
         correctLongitude?: number;
+        radius1000?: number;
+        radius750?: number;
+        radius500?: number;
+        mapType?: 'SIMPLE' | 'SATELLITE';
     } | null;
 }
 export type AnswerType = number | number[] | boolean[] | string | {

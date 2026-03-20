@@ -102,6 +102,30 @@ export function handleJoinMatch(io, socket) {
         }
         await saveMatch(matchId, matchState);
         await setUserMatch(Number(userId), matchId);
+        // Persist to database for API consistency
+        try {
+            await prisma.matchParticipant.upsert({
+                where: {
+                    matchId_userId: {
+                        matchId: Number(matchId),
+                        userId: Number(userId),
+                    }
+                },
+                update: {
+                    displayName: displayName || username,
+                    avatarUrl: avatarUrl || null,
+                },
+                create: {
+                    matchId: Number(matchId),
+                    userId: Number(userId),
+                    displayName: displayName || username,
+                    avatarUrl: avatarUrl || null,
+                }
+            });
+        }
+        catch (dbErr) {
+            console.error(`Error persisting participant ${userId} to match ${matchId}:`, dbErr);
+        }
         // Join socket room
         socket.join(matchId);
         socket.matchId = matchId;

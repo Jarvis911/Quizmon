@@ -15,6 +15,10 @@ function buildQuestionData(type, fields) {
             return {
                 correctLatitude: fields.correctLatitude,
                 correctLongitude: fields.correctLongitude,
+                radius1000: fields.radius1000,
+                radius750: fields.radius750,
+                radius500: fields.radius500,
+                mapType: fields.mapType,
             };
         default:
             // BUTTONS, CHECKBOXES, REORDER — no type-specific data needed
@@ -23,9 +27,10 @@ function buildQuestionData(type, fields) {
 }
 export const createQuestion = async (questionData) => {
     try {
-        const { quizId, text, type, media = [], options, minValue, maxValue, correctValue, correctAnswer, correctLatitude, correctLongitude, } = questionData;
+        const { quizId, text, type, media = [], options, minValue, maxValue, correctValue, correctAnswer, correctLatitude, correctLongitude, radius1000, radius750, radius500, mapType, } = questionData;
         const dataJson = buildQuestionData(type, {
             minValue, maxValue, correctValue, correctAnswer, correctLatitude, correctLongitude,
+            radius1000, radius750, radius500, mapType
         });
         const question = await prisma.question.create({
             data: {
@@ -68,10 +73,11 @@ export const createQuestion = async (questionData) => {
 };
 export const updateQuestion = async (id, questionData) => {
     try {
-        const { text, type, media = [], options = [], minValue, maxValue, correctValue, correctAnswer, correctLatitude, correctLongitude, } = questionData;
+        const { text, type, media = [], options = [], minValue, maxValue, correctValue, correctAnswer, correctLatitude, correctLongitude, radius1000, radius750, radius500, mapType, } = questionData;
         const dataJson = type
             ? buildQuestionData(type, {
                 minValue, maxValue, correctValue, correctAnswer, correctLatitude, correctLongitude,
+                radius1000, radius750, radius500, mapType
             })
             : undefined;
         const updated = await prisma.question.update({

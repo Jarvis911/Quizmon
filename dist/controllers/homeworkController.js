@@ -1,5 +1,6 @@
 import prisma from '../prismaClient.js';
 import { emailService } from '../services/emailService.js';
+import { checkAnswer } from '../socket/scoreCalculator.js';
 // Create a homework assignment (Async Match)
 export const createHomeworkMatch = async (req, res) => {
     try {
@@ -131,7 +132,7 @@ export const startHomework = async (req, res) => {
 export const submitHomeworkAnswer = async (req, res) => {
     try {
         const { id } = req.params; // matchId
-        const { questionId, answerData, isCorrect, score, timeTaken } = req.body;
+        const { questionId, answerData } = req.body;
         const userId = req.userId;
         if (!userId) {
             res.status(401).json({ message: 'Unauthorized' });
@@ -144,15 +145,31 @@ export const submitHomeworkAnswer = async (req, res) => {
             res.status(400).json({ message: 'You have not started or already finished this homework' });
             return;
         }
+        // Fetch question to validate
+        const question = await prisma.question.findUnique({
+            where: { id: Number(questionId) },
+            include: { options: true }
+        });
+        if (!question) {
+            res.status(404).json({ message: 'Question not found' });
+            return;
+        }
+        // Validate answer and calculate score
+        // We cast to socket/types.Question because the structures are compatible enough for checkAnswer
+        const validationResult = checkAnswer(question, answerData);
+        // For homework, we might not use the same timing points as realtime, or we do?
+        // Let's assume for now 1000 points if correct, or based on time if we want to be fancy.
+        // User hasn't specified complex scoring for homework yet, so let's stick to base logic.
+        const score = validationResult.isCorrect ? 1000 : 0;
         // Save answer
         const answer = await prisma.matchAnswer.create({
             data: {
                 participantId: participant.id,
                 questionId: Number(questionId),
                 answerData: answerData || {}, // JSON
-                isCorrect: !!isCorrect,
-                score: Number(score || 0),
-                timeTaken: Number(timeTaken || 0)
+                isCorrect: validationResult.isCorrect,
+                score: score,
+                timeTaken: 0 // Placeholder for now
             }
         });
         res.status(201).json({ message: 'Answer recorded', answer });

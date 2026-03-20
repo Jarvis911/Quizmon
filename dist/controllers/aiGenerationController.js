@@ -63,10 +63,18 @@ export const createJob = async (req, res) => {
         });
         // Generate questions with AI
         try {
-            const generatedQuestions = await generateQuestions(instruction || null, pdfText, count, types);
+            const generationResult = await generateQuestions(instruction || null, pdfText, count, types);
+            // Try to match suggested category to an existing one
+            let suggestedCategoryId;
+            const matchedCategory = await prisma.quizCategory.findFirst({
+                where: { name: { contains: generationResult.suggestedCategory, mode: 'insensitive' } }
+            });
+            if (matchedCategory) {
+                suggestedCategoryId = matchedCategory.id;
+            }
             // Save generated questions
             await prisma.aIGeneratedQuestion.createMany({
-                data: generatedQuestions.map(q => ({
+                data: generationResult.questions.map(q => ({
                     jobId: job.id,
                     questionText: q.questionText,
                     questionType: q.questionType,
@@ -77,7 +85,12 @@ export const createJob = async (req, res) => {
             // Update job status
             await prisma.aIGenerationJob.update({
                 where: { id: job.id },
-                data: { status: AIGenerationStatus.COMPLETED },
+                data: {
+                    status: AIGenerationStatus.COMPLETED,
+                    suggestedTitle: generationResult.suggestedTitle,
+                    suggestedDescription: generationResult.suggestedDescription,
+                    suggestedCategoryId: suggestedCategoryId || null,
+                },
             });
             // Track usage after successful generation
             if (orgId) {
@@ -372,6 +385,23 @@ export const approveAllAndCreateQuiz = async (req, res) => {
             else if (genQ.questionType === 'TYPEANSWER') {
                 questionData.correctAnswer = optData.correctAnswer || optData.answer || '';
             }
+            else if (genQ.questionType === 'RANGE') {
+                questionData.minValue = Number(optData.minValue) || 0;
+                questionData.maxValue = Number(optData.maxValue) || 100;
+                questionData.correctValue = Number(optData.correctValue) || 50;
+            }
+            else if (genQ.questionType === 'LOCATION') {
+                questionData.correctLatitude = Number(optData.correctLatitude);
+                questionData.correctLongitude = Number(optData.correctLongitude);
+                if ('radius1000' in optData)
+                    questionData.radius1000 = Number(optData.radius1000);
+                if ('radius750' in optData)
+                    questionData.radius750 = Number(optData.radius750);
+                if ('radius500' in optData)
+                    questionData.radius500 = Number(optData.radius500);
+                if ('mapType' in optData)
+                    questionData.mapType = String(optData.mapType);
+            }
             const createdQ = await createQuestionService(questionData);
             // Update generated question with final reference
             await prisma.aIGeneratedQuestion.update({
@@ -440,6 +470,75 @@ export const deleteJob = async (req, res) => {
     }
     catch (err) {
         console.error('[deleteJob Error]:', err);
+        res.status(500).json(err);
+    }
+};
+// Finalize and save quiz from agentic data
+export const finalizeAgenticQuiz = async (req, res) => {
+    try {
+        const { title, description, categoryId, questions } = req.body;
+        const userId = req.userId;
+        // Create quiz
+        const quiz = await prisma.quiz.create({
+            data: {
+                title,
+                description: description || title,
+                creatorId: Number(userId),
+                categoryId: Number(categoryId),
+                isPublic: false,
+            },
+        });
+        // Create actual questions
+        for (const genQ of questions) {
+            const optData = genQ.optionsData;
+            const questionData = {
+                quizId: quiz.id,
+                text: genQ.questionText,
+                type: genQ.questionType,
+            };
+            if (genQ.questionType === 'BUTTONS' || genQ.questionType === 'CHECKBOXES') {
+                const options = optData.options || [];
+                questionData.options = options.map(o => ({
+                    text: o.text,
+                    isCorrect: o.isCorrect === true || String(o.isCorrect) === 'true',
+                }));
+                if (questionData.options.length > 0 && !questionData.options.some(o => o.isCorrect)) {
+                    questionData.options[0].isCorrect = true;
+                }
+            }
+            else if (genQ.questionType === 'REORDER') {
+                const options = optData.options || [];
+                questionData.options = options.map((o, idx) => ({
+                    text: o.text,
+                    order: o.order || (idx + 1),
+                }));
+            }
+            else if (genQ.questionType === 'TYPEANSWER') {
+                questionData.correctAnswer = optData.correctAnswer || optData.answer || '';
+            }
+            else if (genQ.questionType === 'RANGE') {
+                questionData.minValue = Number(optData.minValue) || 0;
+                questionData.maxValue = Number(optData.maxValue) || 100;
+                questionData.correctValue = Number(optData.correctValue) || 50;
+            }
+            else if (genQ.questionType === 'LOCATION') {
+                questionData.correctLatitude = Number(optData.correctLatitude);
+                questionData.correctLongitude = Number(optData.correctLongitude);
+                if ('radius1000' in optData)
+                    questionData.radius1000 = Number(optData.radius1000);
+                if ('radius750' in optData)
+                    questionData.radius750 = Number(optData.radius750);
+                if ('radius500' in optData)
+                    questionData.radius500 = Number(optData.radius500);
+                if ('mapType' in optData)
+                    questionData.mapType = String(optData.mapType);
+            }
+            await createQuestionService(questionData);
+        }
+        res.status(201).json(quiz);
+    }
+    catch (err) {
+        console.error('[finalizeAgenticQuiz Error]:', err);
         res.status(500).json(err);
     }
 };
