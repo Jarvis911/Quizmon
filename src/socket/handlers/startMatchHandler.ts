@@ -44,27 +44,26 @@ export function handleStartMatch(io: Server, socket: CustomSocket) {
         console.log(`Match ${matchId} started by host ${socket.userId}`);
 
         // Notify all players
-        io.to(matchId).emit('gameStarted');
+        io.to(String(matchId)).emit('gameStarted');
 
         // Send first question
         await sendNextQuestion(io, matchId);
     };
 }
 
-export async function sendNextQuestion(io: Server, matchId: string): Promise<void> {
+export async function sendNextQuestion(io: Server, matchId: string | number): Promise<void> {
     const matchState = await getMatch(matchId);
     if (!matchState) return;
 
     // Check if match is over
     if (matchState.currentQuestionIndex >= matchState.questions.length) {
-        // Import dynamically to avoid circular dependency
         const { endMatch } = await import('./endMatchHandler.js');
         await endMatch(io, matchId);
         return;
     }
 
     const question = matchState.questions[matchState.currentQuestionIndex];
-    io.to(matchId).emit('nextQuestion', { question, timer: matchState.remainingTime });
+    io.to(String(matchId)).emit('nextQuestion', { question, timer: matchState.remainingTime });
 
     await startQuestionTimer(io, matchId);
 }

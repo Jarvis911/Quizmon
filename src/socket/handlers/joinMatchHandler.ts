@@ -20,6 +20,9 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
         if (currentUserMatchId) {
             if (currentUserMatchId !== matchId) {
                 // User is in a different match
+                // We MUST set userId here so if they choose to "resign" from the current match,
+                // the leaveMatch handler (which depends on socket.userId) will work.
+                socket.userId = Number(userId);
                 return socket.emit('alreadyInMatch', { currentMatchId: currentUserMatchId });
             }
             // If they are in the same match, we allow them to continue to join and resubscribe to the socket room.
@@ -79,7 +82,7 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
                 await setUserMatch(Number(userId), matchId);
 
                 // Join socket room
-                socket.join(matchId);
+                socket.join(String(matchId));
                 socket.matchId = matchId;
                 socket.userId = Number(userId);
 
@@ -89,7 +92,7 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
                 socket.emit('gameStarted');
                 
                 // Notify others visually or internally if needed
-                io.to(matchId).emit('playerJoined', matchState.players);
+                io.to(String(matchId)).emit('playerJoined', matchState.players);
                 return;
             } else {
                 return socket.emit('error', 'Match has already started or ended');
@@ -153,13 +156,13 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
         }
 
         // Join socket room
-        socket.join(matchId);
+        socket.join(String(matchId));
         socket.matchId = matchId;
         socket.userId = Number(userId);
 
         console.log(`Player ${userId} join match ${matchId}!`);
 
         // Notify all players in the match
-        io.to(matchId).emit('playerJoined', matchState.players);
+        io.to(String(matchId)).emit('playerJoined', matchState.players);
     };
 }

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../prismaClient.js';
+import { notificationService } from '../services/notificationService.js';
 import { canUseFeature } from '../services/featureGateService.js';
 import { FeatureKey } from '@prisma/client';
 import crypto from 'crypto';
@@ -60,6 +61,14 @@ export const createClassroom = async (req: Request, res: Response): Promise<void
                 }
             }
         });
+
+        // Send notification
+        await notificationService.createNotification(
+            Number(userId),
+            `Bạn đã tạo thành công lớp học: ${classroom.name}`,
+            'CLASSROOM_CREATED',
+            `/classrooms/${classroom.id}`
+        );
 
         res.status(201).json(classroom);
     } catch (error) {
@@ -207,8 +216,27 @@ export const joinClassroom = async (req: Request, res: Response): Promise<void> 
                 classroomId: classroom.id,
                 userId: Number(userId),
                 role: 'STUDENT'
+            },
+            include: {
+                user: { select: { username: true } }
             }
         });
+
+        // Notify student
+        await notificationService.createNotification(
+            Number(userId),
+            `Chào mừng bạn đến với lớp học: ${classroom.name}`,
+            'CLASSROOM_JOINED',
+            `/classrooms/${classroom.id}`
+        );
+
+        // Notify teacher
+        await notificationService.createNotification(
+            classroom.teacherId,
+            `Học sinh ${member.user.username || 'mới'} vừa tham gia lớp: ${classroom.name}`,
+            'STUDENT_JOINED',
+            `/classrooms/${classroom.id}`
+        );
 
         res.status(201).json({ message: 'Joined successfully', classroomId: classroom.id });
     } catch (error) {

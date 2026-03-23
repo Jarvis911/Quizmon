@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../prismaClient.js';
 import { emailService } from '../services/emailService.js';
+import { notificationService } from '../services/notificationService.js';
 import { checkAnswer } from '../socket/scoreCalculator.js';
 import { Question } from '../socket/types.js';
 
@@ -55,9 +56,7 @@ export const createHomeworkMatch = async (req: Request, res: Response): Promise<
             }));
 
             // Bulk insert notifications
-            await prisma.notification.createMany({
-                data: notifications
-            });
+            await notificationService.createBulkNotifications(notifications);
 
             // Send Emails in parallel
             const emailPromises = students

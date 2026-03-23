@@ -17,6 +17,14 @@ jest.unstable_mockModule('../services/emailService.js', () => ({
     }
 }));
 
+jest.unstable_mockModule('../services/notificationService.js', () => ({
+    __esModule: true,
+    notificationService: {
+        createNotification: (jest.fn() as any).mockResolvedValue({ id: 1 }),
+        createBulkNotifications: (jest.fn() as any).mockResolvedValue({ count: 1 })
+    }
+}));
+
 jest.unstable_mockModule('../middleware/authMiddleware.js', () => ({
     __esModule: true,
     default: (req: Request, res: Response, next: NextFunction) => {
@@ -29,6 +37,7 @@ jest.unstable_mockModule('../middleware/authMiddleware.js', () => ({
 const { default: request } = await import('supertest');
 const { default: app } = await import('../app.js');
 const { emailService } = await import('../services/emailService.js');
+const { notificationService } = await import('../services/notificationService.js');
 
 describe('Homework Routes', () => {
     beforeEach(() => {
@@ -46,7 +55,6 @@ describe('Homework Routes', () => {
             prismaMock.classroom.findUnique.mockResolvedValue(mockClassroom as any);
             prismaMock.match.create.mockResolvedValue(mockMatch as any);
             prismaMock.classroomMember.findMany.mockResolvedValue(mockStudents as any);
-            (prismaMock as any).notification.createMany.mockResolvedValue({ count: 1 } as any);
 
             const response = await request(app)
                 .post('/homework')
@@ -112,6 +120,7 @@ describe('Homework Routes', () => {
             const mockAnswer = { id: 1, participantId: 1, questionId: 1, score: 100 };
 
             prismaMock.matchParticipant.findUnique.mockResolvedValue(mockParticipant as any);
+            prismaMock.question.findUnique.mockResolvedValue({ id: 1, options: [] } as any);
             prismaMock.matchAnswer.create.mockResolvedValue(mockAnswer as any);
 
             const response = await request(app)

@@ -29,6 +29,6 @@ export function handleUpdatePlayerInfo(io: Server, socket: CustomSocket) {
         console.log(`Player ${userId} updated info in match ${matchId}: ${displayName}`);
 
         // Broadcast updated player list to all players in the match
-        io.to(matchId).emit('playerJoined', matchState.players);
+        io.to(String(matchId)).emit('playerJoined', matchState.players);
     };
 }

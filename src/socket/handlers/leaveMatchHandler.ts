@@ -5,16 +5,19 @@ import { endMatch } from './endMatchHandler.js';
 import { handleCancelMatch } from './cancelMatchHandler.js';
 
 export function handleLeaveMatch(io: Server, socket: CustomSocket) {
-    return async ({ matchId }: { matchId: string }) => {
+    return async ({ matchId, userId: payloadUserId }: { matchId: string; userId?: number }) => {
         if (!(await hasMatch(matchId))) {
             return socket.emit('error', 'Match not found');
         }
 
         const matchState = await getMatch(matchId);
         if (!matchState) return;
-        const userId = socket.userId;
+        const userId = socket.userId || payloadUserId;
 
-        if (!userId) return;
+        if (!userId) {
+            console.error(`Attempted leaveMatch for ${matchId} but no userId found on socket or payload`);
+            return socket.emit('error', 'User identification failed');
+        }
 
         if (Number(userId) === Number(matchState.hostId) && matchState.state === 'waiting') {
             console.log(`Host ${userId} left match ${matchId}`);

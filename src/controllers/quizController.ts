@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { uploadBufferToAzure } from '../services/azureBlobService.js';
 import prisma from '../prismaClient.js';
+import { notificationService } from '../services/notificationService.js';
 
 interface CreateQuizBody {
     title: string;
@@ -39,6 +40,14 @@ export const createQuiz = async (req: Request, res: Response): Promise<void> => 
                 },
             },
         });
+
+        // Send notification
+        await notificationService.createNotification(
+            Number(creatorId),
+            `Bạn đã tạo thành công bộ câu hỏi: ${data.title}`,
+            'QUIZ_CREATED',
+            `/library/${data.id}`
+        );
 
         res.status(201).json(data);
     } catch (err) {
@@ -165,6 +174,14 @@ export const updateQuiz = async (req: Request, res: Response): Promise<void> => 
                 },
             },
         });
+
+        // Send notification
+        await notificationService.createNotification(
+            userId,
+            `Bạn đã cập nhật bộ câu hỏi: ${data.title}`,
+            'QUIZ_UPDATED',
+            `/library/${data.id}`
+        );
 
         res.status(200).json(data);
     } catch (err) {

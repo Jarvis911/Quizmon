@@ -39,13 +39,13 @@ export interface Question {
 export type AnswerType = number | number[] | boolean[] | string | { lat: number; lon: number };
 
 export interface CustomSocket extends Socket {
-    matchId?: string;
+    matchId?: string | number;
     userId?: number;
 }
 
 // Event payload types
 export interface JoinMatchPayload {
-    matchId: string;
+    matchId: string | number;
     userId: number;
     username: string;
     displayName?: string;
@@ -53,34 +53,34 @@ export interface JoinMatchPayload {
 }
 
 export interface UpdatePlayerInfoPayload {
-    matchId: string;
+    matchId: string | number;
     userId: number;
     displayName: string;
     avatarUrl: string | null;
 }
 
 export interface UpdateMatchSettingsPayload {
-    matchId: string;
+    matchId: string | number;
     timePerQuestion: number | null;
     musicUrl: string | null;
     backgroundUrl: string | null;
 }
 
 export interface StartMatchPayload {
-    matchId: string;
+    matchId: string | number;
 }
 
 export interface SubmitAnswerPayload {
-    matchId: string;
+    matchId: string | number;
     userId: number;
     questionId: number;
     answer: AnswerType;
 }
 
 export interface RequestCurrentQuestionPayload {
-    matchId: string;
+    matchId: string | number;
 }
 
 export interface EndMatchPayload {
-    matchId: string;
+    matchId: string | number;
 }

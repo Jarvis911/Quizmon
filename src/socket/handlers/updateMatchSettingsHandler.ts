@@ -23,7 +23,7 @@ export function handleUpdateMatchSettings(io: Server, socket: CustomSocket) {
         console.log(`Host ${socket.userId} updated settings for match ${matchId}`);
 
         // Broadcast settings to all players in the lobby
-        io.to(matchId).emit('matchSettingsUpdated', {
+        io.to(String(matchId)).emit('matchSettingsUpdated', {
             timePerQuestion,
             musicUrl,
             backgroundUrl,

@@ -39,12 +39,14 @@ export const getRetrieveQuestion = async (req: Request, res: Response): Promise<
 
 // Button question
 export const createButtonQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, options, videos, imageEffect } = req.body as {
+    const { quizId, text, options, videos, imageEffect, zoomX, zoomY } = req.body as {
         quizId: string;
         text: string;
         options: string;
         videos?: string;
         imageEffect?: string;
+        zoomX?: string;
+        zoomY?: string;
     };
     const files = req.files as Express.Multer.File[] | undefined;
 
@@ -52,7 +54,9 @@ export const createButtonQuestion = async (req: Request, res: Response): Promise
         const questionMedia = await uploadMedia(
             files ? files : null,
             videos ? JSON.parse(videos) as VideoInput : null,
-            imageEffect
+            imageEffect,
+            zoomX ? parseFloat(zoomX) : undefined,
+            zoomY ? parseFloat(zoomY) : undefined
         );
 
         const questionData: QuestionData = {
@@ -73,12 +77,14 @@ export const createButtonQuestion = async (req: Request, res: Response): Promise
 };
 
 export const updateButtonQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, options, videos, imageEffect } = req.body as {
+    const { quizId, text, options, videos, imageEffect, zoomX, zoomY } = req.body as {
         quizId: string;
         text: string;
         options: string;
         videos?: string;
         imageEffect?: string;
+        zoomX?: string;
+        zoomY?: string;
     };
     const { id } = req.params;
     const files = req.files as Express.Multer.File[] | undefined;
@@ -87,7 +93,9 @@ export const updateButtonQuestion = async (req: Request, res: Response): Promise
         const questionMedia = await uploadMedia(
             files ? files : null,
             videos ? JSON.parse(videos) as VideoInput : null,
-            imageEffect
+            imageEffect,
+            zoomX ? parseFloat(zoomX) : undefined,
+            zoomY ? parseFloat(zoomY) : undefined
         );
 
         const questionData: QuestionData = {
@@ -109,12 +117,14 @@ export const updateButtonQuestion = async (req: Request, res: Response): Promise
 
 // Checkbox question
 export const createCheckboxQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, options, videos, imageEffect } = req.body as {
+    const { quizId, text, options, videos, imageEffect, zoomX, zoomY } = req.body as {
         quizId: string;
         text: string;
         options: string;
         videos?: string;
         imageEffect?: string;
+        zoomX?: string;
+        zoomY?: string;
     };
     const files = req.files as Express.Multer.File[] | undefined;
 
@@ -122,7 +132,9 @@ export const createCheckboxQuestion = async (req: Request, res: Response): Promi
         const questionMedia = await uploadMedia(
             files ? files : null,
             videos ? JSON.parse(videos) as VideoInput : null,
-            imageEffect
+            imageEffect,
+            zoomX ? parseFloat(zoomX) : undefined,
+            zoomY ? parseFloat(zoomY) : undefined
         );
 
         const questionData: QuestionData = {
@@ -143,12 +155,14 @@ export const createCheckboxQuestion = async (req: Request, res: Response): Promi
 };
 
 export const updateCheckboxQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, options, videos, imageEffect } = req.body as {
+    const { quizId, text, options, videos, imageEffect, zoomX, zoomY } = req.body as {
         quizId: string;
         text: string;
         options: string;
         videos?: string;
         imageEffect?: string;
+        zoomX?: string;
+        zoomY?: string;
     };
     const { id } = req.params;
     const files = req.files as Express.Multer.File[] | undefined;
@@ -157,7 +171,9 @@ export const updateCheckboxQuestion = async (req: Request, res: Response): Promi
         const questionMedia = await uploadMedia(
             files ? files : null,
             videos ? JSON.parse(videos) as VideoInput : null,
-            imageEffect
+            imageEffect,
+            zoomX ? parseFloat(zoomX) : undefined,
+            zoomY ? parseFloat(zoomY) : undefined
         );
 
         const questionData: QuestionData = {
@@ -179,7 +195,7 @@ export const updateCheckboxQuestion = async (req: Request, res: Response): Promi
 
 // Range question
 export const createRangeQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, minValue, maxValue, correctValue, videos, imageEffect } = req.body as {
+    const { quizId, text, minValue, maxValue, correctValue, videos, imageEffect, zoomX, zoomY } = req.body as {
         quizId: string;
         text: string;
         minValue: string;
@@ -187,6 +203,8 @@ export const createRangeQuestion = async (req: Request, res: Response): Promise<
         correctValue: string;
         videos?: string;
         imageEffect?: string;
+        zoomX?: string;
+        zoomY?: string;
     };
     const files = req.files as Express.Multer.File[] | undefined;
 
@@ -194,7 +212,9 @@ export const createRangeQuestion = async (req: Request, res: Response): Promise<
         const questionMedia = await uploadMedia(
             files ? files : null,
             videos ? JSON.parse(videos) as VideoInput : null,
-            imageEffect
+            imageEffect,
+            zoomX ? parseFloat(zoomX) : undefined,
+            zoomY ? parseFloat(zoomY) : undefined
         );
 
         const questionData: QuestionData = {
@@ -217,7 +237,7 @@ export const createRangeQuestion = async (req: Request, res: Response): Promise<
 };
 
 export const updateRangeQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, minValue, maxValue, correctValue, videos, imageEffect } = req.body as {
+    const { quizId, text, minValue, maxValue, correctValue, videos, imageEffect, zoomX, zoomY } = req.body as {
         quizId: string;
         text: string;
         minValue: string;
@@ -225,6 +245,8 @@ export const updateRangeQuestion = async (req: Request, res: Response): Promise<
         correctValue: string;
         videos?: string;
         imageEffect?: string;
+        zoomX?: string;
+        zoomY?: string;
     };
     const files = req.files as Express.Multer.File[] | undefined;
     const { id } = req.params;
@@ -233,7 +255,9 @@ export const updateRangeQuestion = async (req: Request, res: Response): Promise<
         const questionMedia = await uploadMedia(
             files ? files : null,
             videos ? JSON.parse(videos) as VideoInput : null,
-            imageEffect
+            imageEffect,
+            zoomX ? parseFloat(zoomX) : undefined,
+            zoomY ? parseFloat(zoomY) : undefined
         );
 
         const questionData: QuestionData = {
@@ -257,12 +281,14 @@ export const updateRangeQuestion = async (req: Request, res: Response): Promise<
 
 // Reorder question
 export const createReorderQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, options, videos, imageEffect } = req.body as {
+    const { quizId, text, options, videos, imageEffect, zoomX, zoomY } = req.body as {
         quizId: string;
         text: string;
         options: string;
         videos?: string;
         imageEffect?: string;
+        zoomX?: string;
+        zoomY?: string;
     };
     const files = req.files as Express.Multer.File[] | undefined;
 
@@ -270,7 +296,9 @@ export const createReorderQuestion = async (req: Request, res: Response): Promis
         const questionMedia = await uploadMedia(
             files ? files : null,
             videos ? JSON.parse(videos) as VideoInput : null,
-            imageEffect
+            imageEffect,
+            zoomX ? parseFloat(zoomX) : undefined,
+            zoomY ? parseFloat(zoomY) : undefined
         );
 
         const questionData: QuestionData = {
@@ -291,12 +319,14 @@ export const createReorderQuestion = async (req: Request, res: Response): Promis
 };
 
 export const updateReorderQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, options, videos, imageEffect } = req.body as {
+    const { quizId, text, options, videos, imageEffect, zoomX, zoomY } = req.body as {
         quizId: string;
         text: string;
         options: string;
         videos?: string;
         imageEffect?: string;
+        zoomX?: string;
+        zoomY?: string;
     };
     const files = req.files as Express.Multer.File[] | undefined;
     const { id } = req.params;
@@ -305,7 +335,9 @@ export const updateReorderQuestion = async (req: Request, res: Response): Promis
         const questionMedia = await uploadMedia(
             files ? files : null,
             videos ? JSON.parse(videos) as VideoInput : null,
-            imageEffect
+            imageEffect,
+            zoomX ? parseFloat(zoomX) : undefined,
+            zoomY ? parseFloat(zoomY) : undefined
         );
 
         const questionData: QuestionData = {
@@ -327,7 +359,7 @@ export const updateReorderQuestion = async (req: Request, res: Response): Promis
 
 // Location question
 export const createLocationQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, correctLatitude, correctLongitude, optionsData, videos, imageEffect } = req.body as {
+    const { quizId, text, correctLatitude, correctLongitude, optionsData, videos, imageEffect, zoomX, zoomY } = req.body as {
         quizId: string;
         text: string;
         correctLatitude: string;
@@ -335,6 +367,8 @@ export const createLocationQuestion = async (req: Request, res: Response): Promi
         optionsData?: any;
         videos?: string;
         imageEffect?: string;
+        zoomX?: string;
+        zoomY?: string;
     };
     const files = req.files as Express.Multer.File[] | undefined;
 
@@ -342,7 +376,9 @@ export const createLocationQuestion = async (req: Request, res: Response): Promi
         const questionMedia = await uploadMedia(
             files ? files : null,
             videos ? JSON.parse(videos) as VideoInput : null,
-            imageEffect
+            imageEffect,
+            zoomX ? parseFloat(zoomX) : undefined,
+            zoomY ? parseFloat(zoomY) : undefined
         );
 
         let parsedOptionsData: any = {};
@@ -373,7 +409,7 @@ export const createLocationQuestion = async (req: Request, res: Response): Promi
 };
 
 export const updateLocationQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, correctLatitude, correctLongitude, optionsData, videos, imageEffect } = req.body as {
+    const { quizId, text, correctLatitude, correctLongitude, optionsData, videos, imageEffect, zoomX, zoomY } = req.body as {
         quizId: string;
         text: string;
         correctLatitude: string;
@@ -381,6 +417,8 @@ export const updateLocationQuestion = async (req: Request, res: Response): Promi
         optionsData?: any;
         videos?: string;
         imageEffect?: string;
+        zoomX?: string;
+        zoomY?: string;
     };
     const files = req.files as Express.Multer.File[] | undefined;
     const { id } = req.params;
@@ -389,7 +427,9 @@ export const updateLocationQuestion = async (req: Request, res: Response): Promi
         const questionMedia = await uploadMedia(
             files ? files : null,
             videos ? JSON.parse(videos) as VideoInput : null,
-            imageEffect
+            imageEffect,
+            zoomX ? parseFloat(zoomX) : undefined,
+            zoomY ? parseFloat(zoomY) : undefined
         );
 
         let parsedOptionsData: any = {};
@@ -421,12 +461,14 @@ export const updateLocationQuestion = async (req: Request, res: Response): Promi
 
 // Type answer question
 export const createTypeAnswerQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, correctAnswer, videos, imageEffect } = req.body as {
+    const { quizId, text, correctAnswer, videos, imageEffect, zoomX, zoomY } = req.body as {
         quizId: string;
         text: string;
         correctAnswer: string;
         videos?: string;
         imageEffect?: string;
+        zoomX?: string;
+        zoomY?: string;
     };
     const files = req.files as Express.Multer.File[] | undefined;
 
@@ -434,7 +476,9 @@ export const createTypeAnswerQuestion = async (req: Request, res: Response): Pro
         const questionMedia = await uploadMedia(
             files ? files : null,
             videos ? JSON.parse(videos) as VideoInput : null,
-            imageEffect
+            imageEffect,
+            zoomX ? parseFloat(zoomX) : undefined,
+            zoomY ? parseFloat(zoomY) : undefined
         );
 
         const questionData: QuestionData = {
@@ -455,12 +499,14 @@ export const createTypeAnswerQuestion = async (req: Request, res: Response): Pro
 };
 
 export const updateTypeAnswerQuestion = async (req: Request, res: Response): Promise<void> => {
-    const { quizId, text, correctAnswer, videos, imageEffect } = req.body as {
+    const { quizId, text, correctAnswer, videos, imageEffect, zoomX, zoomY } = req.body as {
         quizId: string;
         text: string;
         correctAnswer: string;
         videos?: string;
         imageEffect?: string;
+        zoomX?: string;
+        zoomY?: string;
     };
     const files = req.files as Express.Multer.File[] | undefined;
     const { id } = req.params;
@@ -469,7 +515,9 @@ export const updateTypeAnswerQuestion = async (req: Request, res: Response): Pro
         const questionMedia = await uploadMedia(
             files ? files : null,
             videos ? JSON.parse(videos) as VideoInput : null,
-            imageEffect
+            imageEffect,
+            zoomX ? parseFloat(zoomX) : undefined,
+            zoomY ? parseFloat(zoomY) : undefined
         );
 
         const questionData: QuestionData = {

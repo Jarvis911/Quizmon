@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../prismaClient.js';
+import { notificationService } from '../services/notificationService.js';
 import { AIGenerationStatus, AIQuestionStatus, QuestionType, Prisma } from '@prisma/client';
 import { generateQuestions, regenerateQuestion, extractPdfText } from '../services/aiService.js';
 import { createQuestion as createQuestionService, QuestionData } from '../services/questionService.js';
@@ -124,6 +125,7 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
                     suggestedTitle: generationResult.suggestedTitle,
                     suggestedDescription: generationResult.suggestedDescription,
                     suggestedCategoryId: suggestedCategoryId || null,
+                    totalTokens: generationResult.tokenUsage,
                 },
             });
 
@@ -140,6 +142,14 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
                     targetQuiz: { select: { id: true, title: true } },
                 },
             });
+            
+            // Send success notification
+            await notificationService.createNotification(
+                Number(userId),
+                `AI đã tạo xong câu hỏi cho bạn. Hãy vào kiểm tra nhé!`,
+                'AI_GENERATION_COMPLETED',
+                `/ai-generation/jobs/${job.id}`
+            );
 
             res.status(201).json(completeJob);
         } catch (aiError) {
@@ -153,6 +163,14 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
                     errorMessage: (aiError as Error).message,
                 },
             });
+
+            // Send failure notification
+            await notificationService.createNotification(
+                Number(userId),
+                `Tạo câu hỏi bằng AI thất bại: ${(aiError as Error).message}`,
+                'AI_GENERATION_FAILED',
+                `/ai-generation/jobs/${job.id}`
+            );
 
             res.status(500).json({
                 message: 'AI generation failed',
@@ -307,7 +325,7 @@ export const regenerateGeneratedQuestion = async (req: Request, res: Response): 
             job.instruction
         );
 
-        // Update with new content
+        // Update with new content and increment tokens
         const updated = await prisma.aIGeneratedQuestion.update({
             where: { id: Number(questionId) },
             data: {
@@ -318,6 +336,16 @@ export const regenerateGeneratedQuestion = async (req: Request, res: Response): 
                 userFeedback: userFeedback || null,
             },
         });
+
+        // Accumulate tokens in the job
+        if (newQuestion.tokenUsage) {
+            await prisma.aIGenerationJob.update({
+                where: { id: job.id },
+                data: {
+                    totalTokens: { increment: newQuestion.tokenUsage }
+                }
+            });
+        }
 
         res.status(200).json(updated);
     } catch (err) {
@@ -430,6 +458,7 @@ export const approveAllAndCreateQuiz = async (req: Request, res: Response): Prom
                 description,
                 creatorId: Number(userId),
                 categoryId: Number(categoryId),
+                organizationId: req.organizationId ?? null,
                 isPublic: false,
             },
         });
@@ -495,6 +524,14 @@ export const approveAllAndCreateQuiz = async (req: Request, res: Response): Prom
             where: { id: job.id },
             data: { status: AIGenerationStatus.APPROVED, targetQuizId: quiz.id },
         });
+
+        // Send notification
+        await notificationService.createNotification(
+            Number(userId),
+            `Bộ câu hỏi AI "${quiz.title}" đã được thêm vào thư viện của bạn.`,
+            'AI_QUIZ_APPROVED',
+            `/library/${quiz.id}`
+        );
 
         // Return quiz with questions
         const completeQuiz = await prisma.quiz.findUnique({
@@ -577,6 +614,7 @@ export const finalizeAgenticQuiz = async (req: Request, res: Response): Promise<
                 description: description || title,
                 creatorId: Number(userId),
                 categoryId: Number(categoryId),
+                organizationId: req.organizationId ?? null,
                 isPublic: false,
             },
         });

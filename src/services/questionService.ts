@@ -1,5 +1,6 @@
 import { QuestionType, MediaType, ImageEffect, Prisma } from '@prisma/client';
 import prisma from '../prismaClient.js';
+import { notificationService } from './notificationService.js';
 
 export interface MediaItem {
     type: MediaType;
@@ -7,6 +8,8 @@ export interface MediaItem {
     startTime?: number | null;
     duration?: number | null;
     effect?: ImageEffect | null;
+    zoomX?: number | null;
+    zoomY?: number | null;
 }
 
 export interface QuestionOption {
@@ -101,6 +104,8 @@ export const createQuestion = async (questionData: QuestionData) => {
                         startTime: m.startTime,
                         duration: m.duration,
                         effect: m.effect || 'NONE',
+                        zoomX: m.zoomX || 0.5,
+                        zoomY: m.zoomY || 0.5,
                     })),
                 },
                 options: options && {
@@ -115,10 +120,18 @@ export const createQuestion = async (questionData: QuestionData) => {
                 media: true,
                 options: true,
                 quiz: {
-                    select: { id: true, title: true },
+                    select: { id: true, title: true, creatorId: true },
                 },
             },
         });
+
+        // Send notification
+        await notificationService.createNotification(
+            question.quiz.creatorId,
+            `Bạn đã thêm một câu hỏi mới vào bộ: ${question.quiz.title}`,
+            'QUESTION_CREATED',
+            `/library/${question.quiz.id}`
+        );
 
         return question;
     } catch (err) {
@@ -168,6 +181,8 @@ export const updateQuestion = async (id: number, questionData: Partial<QuestionD
                         startTime: m.startTime,
                         duration: m.duration,
                         effect: m.effect || 'NONE',
+                        zoomX: m.zoomX || 0.5,
+                        zoomY: m.zoomY || 0.5,
                     })),
                 },
                 options: {
@@ -182,8 +197,21 @@ export const updateQuestion = async (id: number, questionData: Partial<QuestionD
             include: {
                 media: true,
                 options: true,
+                quiz: {
+                    select: { id: true, title: true, creatorId: true },
+                },
             },
         });
+
+        // Send notification
+        if (updated.quiz) {
+            await notificationService.createNotification(
+                updated.quiz.creatorId,
+                `Bạn đã cập nhật câu hỏi trong bộ: ${updated.quiz.title}`,
+                'QUESTION_UPDATED',
+                `/library/${updated.quiz.id}`
+            );
+        }
 
         return updated;
     } catch (err) {

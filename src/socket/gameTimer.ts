@@ -6,52 +6,52 @@ import { QUESTION_TIME_LIMIT, TIME_UPDATE_INTERVAL_MS, NEXT_QUESTION_DELAY_MS } 
 /**
  * Start the question timer for a match.
  */
-export async function startQuestionTimer(io: Server, matchId: string): Promise<void> {
+export async function startQuestionTimer(io: Server, matchId: string | number): Promise<void> {
     const matchState = await getMatch(matchId);
     if (!matchState) return;
 
     matchState.remainingTime = QUESTION_TIME_LIMIT;
     await saveMatch(matchId, matchState);
 
-    io.to(matchId).emit('timeUpdate', matchState.remainingTime);
+    io.to(String(matchId)).emit('timeUpdate', matchState.remainingTime);
 
     const intervalId = setInterval(async () => {
         // Fetch fresh state inside interval
         const currentMatchState = await getMatch(matchId);
         if (!currentMatchState) {
             clearInterval(intervalId);
-            matchIntervals.delete(matchId);
+            matchIntervals.delete(String(matchId));
             return;
         }
 
         currentMatchState.remainingTime = Math.max(0, currentMatchState.remainingTime - 0.1);
         await saveMatch(matchId, currentMatchState);
 
-        io.to(matchId).emit('timeUpdate', Number(currentMatchState.remainingTime.toFixed(1)));
+        io.to(String(matchId)).emit('timeUpdate', Number(currentMatchState.remainingTime.toFixed(1)));
 
         if (currentMatchState.remainingTime <= 0) {
             clearInterval(intervalId);
-            matchIntervals.delete(matchId);
+            matchIntervals.delete(String(matchId));
             await processTimeUp(io, matchId);
         }
     }, TIME_UPDATE_INTERVAL_MS);
 
-    matchIntervals.set(matchId, intervalId);
+    matchIntervals.set(String(matchId), intervalId);
 }
 
 /**
  * Process time up for the current question.
  * Calculate scores and move to the next question.
  */
-export async function processTimeUp(io: Server, matchId: string): Promise<void> {
+export async function processTimeUp(io: Server, matchId: string | number): Promise<void> {
     const matchState = await getMatch(matchId);
     if (!matchState) return;
 
     // Clear timer if still running
-    const interval = matchIntervals.get(matchId);
+    const interval = matchIntervals.get(String(matchId));
     if (interval) {
         clearInterval(interval);
-        matchIntervals.delete(matchId);
+        matchIntervals.delete(String(matchId));
     }
 
     const question = matchState.questions[matchState.currentQuestionIndex];
@@ -75,14 +75,14 @@ export async function processTimeUp(io: Server, matchId: string): Promise<void> 
 
         // Emit result (with correct location for LOCATION type)
         if (question.type === 'LOCATION') {
-            io.to(matchId).emit('answerResult', {
+            io.to(String(matchId)).emit('answerResult', {
                 userId: player.userId,
                 isCorrect: result.isCorrect,
                 questionId,
                 correctLatLon: result.correctLatLon,
             });
         } else {
-            io.to(matchId).emit('answerResult', {
+            io.to(String(matchId)).emit('answerResult', {
                 userId: player.userId,
                 isCorrect: result.isCorrect,
                 questionId,
@@ -96,7 +96,7 @@ export async function processTimeUp(io: Server, matchId: string): Promise<void> 
     await saveMatch(matchId, matchState);
 
     // Emit updated scores
-    io.to(matchId).emit(
+    io.to(String(matchId)).emit(
         'updatedScores',
         matchState.players.map((p) => ({
             userId: p.userId,

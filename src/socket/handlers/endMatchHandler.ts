@@ -4,16 +4,16 @@ import { Prisma } from '@prisma/client';
 import { CustomSocket } from '../types.js';
 import { getMatch, deleteMatch, removeUserMatch, matchIntervals } from '../matchStore.js';
 
-export async function endMatch(io: Server, matchId: string): Promise<void> {
+export async function endMatch(io: Server, matchId: string | number): Promise<void> {
     const matchState = await getMatch(matchId);
 
     if (!matchState) return;
 
     // Clear timer
-    const interval = matchIntervals.get(matchId);
+    const interval = matchIntervals.get(String(matchId));
     if (interval) {
         clearInterval(interval);
-        matchIntervals.delete(matchId);
+        matchIntervals.delete(String(matchId));
     }
 
     matchState.state = 'ended';
@@ -50,7 +50,7 @@ export async function endMatch(io: Server, matchId: string): Promise<void> {
         }));
 
     // Notify all players
-    io.to(matchId).emit('gameOver', { leaderboard });
+    io.to(String(matchId)).emit('gameOver', { leaderboard });
 
     // Clean up match state (no await needed for Promise.all map since order doesn't matter, but good practice)
     await Promise.all(matchState.players.map((player) => removeUserMatch(player.userId)));
@@ -60,7 +60,7 @@ export async function endMatch(io: Server, matchId: string): Promise<void> {
 }
 
 export function handleEndMatch(io: Server, socket: CustomSocket) {
-    return async ({ matchId }: { matchId: string }) => {
+    return async ({ matchId }: { matchId: string | number }) => {
         const matchState = await getMatch(matchId);
         if (!matchState) return;
 

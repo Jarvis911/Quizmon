@@ -94,16 +94,6 @@ async function main() {
         },
     });
 
-    // -- RANGE Question --
-    const q3 = await prisma.question.create({
-        data: {
-            text: 'What is the boiling point of water in Celsius at sea level?',
-            type: QuestionType.RANGE,
-            quizId: scienceQuiz.id,
-            data: { minValue: 0, maxValue: 200, correctValue: 100 },
-        },
-    });
-
     // -- REORDER Question --
     const q4 = await prisma.question.create({
         data: {

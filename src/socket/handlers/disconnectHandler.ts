@@ -33,7 +33,7 @@ export function handleDisconnect(io: Server, socket: CustomSocket) {
                         const newHostId = remainingPlayers[0].userId;
                         matchState.hostId = Number(newHostId);
                         console.log(`Host disconnected, reassigned host for match ${matchId} to user ${newHostId}`);
-                        io.to(matchId).emit('hostChanged', { newHostId: Number(newHostId) });
+                        io.to(String(matchId)).emit('hostChanged', { newHostId: Number(newHostId) });
                     }
                 }
             } else {
@@ -61,7 +61,7 @@ export function handleDisconnect(io: Server, socket: CustomSocket) {
             console.log(`Player/Host ${userId} disconnected from match ${matchId}. Remaining active players: ${matchState.players.filter(p => !p.disconnected).length}`);
 
             // Notify remaining players
-            io.to(matchId).emit('playerLeft', matchState.players);
+            io.to(String(matchId)).emit('playerLeft', matchState.players);
 
             // If no players left actively connected, clean up the match gracefully
             const activePlayers = matchState.players.filter(p => !p.disconnected);

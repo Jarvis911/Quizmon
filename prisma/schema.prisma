@@ -113,6 +113,8 @@ model QuestionMedia {
   startTime Int?
   duration  Int?
   effect    ImageEffect? @default(NONE)
+  zoomX     Float?       @default(0.5)
+  zoomY     Float?       @default(0.5)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

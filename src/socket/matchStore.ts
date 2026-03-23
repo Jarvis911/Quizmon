@@ -45,7 +45,7 @@ function reviver(key: string, value: any) {
 /**
  * Get a match state by its ID.
  */
-export async function getMatch(matchId: string): Promise<MatchState | undefined> {
+export async function getMatch(matchId: string | number): Promise<MatchState | undefined> {
     const data = await redisClient.get(MATCH_PREFIX + matchId);
     if (!data) return undefined;
     return JSON.parse(data, reviver) as MatchState;
@@ -54,7 +54,7 @@ export async function getMatch(matchId: string): Promise<MatchState | undefined>
 /**
  * Check if a match exists.
  */
-export async function hasMatch(matchId: string): Promise<boolean> {
+export async function hasMatch(matchId: string | number): Promise<boolean> {
     const exists = await redisClient.exists(MATCH_PREFIX + matchId);
     return exists > 0;
 }
@@ -62,24 +62,24 @@ export async function hasMatch(matchId: string): Promise<boolean> {
 /**
  * Save or update a match state.
  */
-export async function saveMatch(matchId: string, matchState: MatchState): Promise<void> {
+export async function saveMatch(matchId: string | number, matchState: MatchState): Promise<void> {
     const serialized = JSON.stringify(matchState, replacer);
     await redisClient.set(MATCH_PREFIX + matchId, serialized);
-    await redisClient.sAdd(MATCHES_SET_KEY, matchId);
+    await redisClient.sAdd(MATCHES_SET_KEY, String(matchId));
 }
 
 /**
  * Delete a match from the store.
  */
-export async function deleteMatch(matchId: string): Promise<void> {
+export async function deleteMatch(matchId: string | number): Promise<void> {
     await redisClient.del(MATCH_PREFIX + matchId);
-    await redisClient.sRem(MATCHES_SET_KEY, matchId);
+    await redisClient.sRem(MATCHES_SET_KEY, String(matchId));
 
     // Clean up local interval if exists
-    const interval = matchIntervals.get(matchId);
+    const interval = matchIntervals.get(String(matchId));
     if (interval) {
         clearInterval(interval);
-        matchIntervals.delete(matchId);
+        matchIntervals.delete(String(matchId));
     }
 }
 
@@ -102,8 +102,8 @@ export async function isUserInMatch(userId: number): Promise<boolean> {
 /**
  * Associate a user with a match.
  */
-export async function setUserMatch(userId: number, matchId: string): Promise<void> {
-    await redisClient.set(USER_MATCH_PREFIX + userId, matchId);
+export async function setUserMatch(userId: number, matchId: string | number): Promise<void> {
+    await redisClient.set(USER_MATCH_PREFIX + userId, String(matchId));
 }
 
 /**

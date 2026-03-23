@@ -16,6 +16,15 @@ jest.unstable_mockModule('../middleware/authMiddleware.js', () => ({
     default: (req: Request, res: Response, next: NextFunction) => {
         req.user = { id: 1 };
         req.userId = 1;
+        req.organizationId = 1;
+        next();
+    },
+}));
+
+jest.unstable_mockModule('../middleware/orgMiddleware.js', () => ({
+    __esModule: true,
+    default: (req: Request, res: Response, next: NextFunction) => {
+        req.organizationId = 1;
         next();
     },
 }));
@@ -25,6 +34,12 @@ jest.unstable_mockModule('../services/aiService.js', () => ({
     generateQuestions: jest.fn(),
     regenerateQuestion: jest.fn(),
     extractPdfText: jest.fn(),
+}));
+
+jest.unstable_mockModule('../services/usageService.js', () => ({
+    __esModule: true,
+    trackUsage: jest.fn(),
+    checkLimit: (jest.fn() as any).mockResolvedValue({ allowed: true, limit: 10, current: 0 }),
 }));
 
 jest.unstable_mockModule('../services/questionService.js', () => ({

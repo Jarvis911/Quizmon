@@ -17,6 +17,7 @@ router.get('/reports', adminController.getReports);
 router.put('/reports/:id/resolve', adminController.resolveReport);
 router.get('/ai-jobs', adminController.getAIJobs);
 router.get('/ai-config', adminController.getAIConfig);
+router.get('/ai-config-options', adminController.getAIConfigOptions);
 router.put('/ai-config', adminController.updateAIConfig);
 
 export default router;

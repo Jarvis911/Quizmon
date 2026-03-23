@@ -41,7 +41,21 @@ export const getDashboardStats = async (req: Request, res: Response) => {
 
 export const getQuizzes = async (req: Request, res: Response) => {
     try {
+        const { search, categoryId } = req.query;
+
+        const where: any = {};
+        if (search) {
+            where.OR = [
+                { title: { contains: String(search) } },
+                { creator: { username: { contains: String(search) } } }
+            ];
+        }
+        if (categoryId) {
+            where.categoryId = Number(categoryId);
+        }
+
         const quizzes = await prisma.quiz.findMany({
+            where,
             include: { creator: { select: { username: true, email: true } }, category: true },
             orderBy: { createdAt: 'desc' },
             take: 100
@@ -64,7 +78,14 @@ export const deleteQuiz = async (req: Request, res: Response) => {
 
 export const getReports = async (req: Request, res: Response) => {
     try {
+        const { status, reportType } = req.query;
+        
+        const where: any = {};
+        if (status) where.status = status;
+        if (reportType) where.reportType = reportType;
+
         const reports = await prisma.systemReport.findMany({
+            where,
             include: { reporter: { select: { username: true, email: true } } },
             orderBy: { createdAt: 'desc' }
         });
@@ -90,7 +111,21 @@ export const resolveReport = async (req: Request, res: Response) => {
 
 export const getUsers = async (req: Request, res: Response) => {
     try {
+        const { search, isAdmin } = req.query;
+
+        const where: any = {};
+        if (search) {
+            where.OR = [
+                { username: { contains: String(search) } },
+                { email: { contains: String(search) } }
+            ];
+        }
+        if (isAdmin !== undefined) {
+            where.isAdmin = isAdmin === 'true';
+        }
+
         const users = await prisma.user.findMany({
+            where,
             select: {
                 id: true, username: true, email: true, isAdmin: true, createdAt: true,
                 organizationMembers: {
@@ -108,7 +143,14 @@ export const getUsers = async (req: Request, res: Response) => {
 
 export const getAIJobs = async (req: Request, res: Response) => {
     try {
+        const { status, userId } = req.query;
+
+        const where: any = {};
+        if (status) where.status = status;
+        if (userId) where.userId = Number(userId);
+
         const jobs = await prisma.aIGenerationJob.findMany({
+            where,
             include: { user: { select: { username: true, email: true } } },
             orderBy: { createdAt: 'desc' },
             take: 100
@@ -133,10 +175,22 @@ export const updateAIConfig = async (req: Request, res: Response) => {
         const { featureName, modelName, isActive } = req.body;
         const config = await prisma.aIModelConfig.upsert({
             where: { featureName },
-            update: { modelName, isActive },
-            create: { featureName, modelName, isActive }
+            update: { modelName: modelName || 'gemini-2.5-flash', isActive },
+            create: { featureName, modelName: modelName || 'gemini-2.5-flash', isActive }
         });
         res.json(config);
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+};
+
+export const getAIConfigOptions = async (req: Request, res: Response) => {
+    try {
+        const { AI_FEATURES, GEMINI_MODELS } = await import('../types/ai.js');
+        res.json({
+            features: AI_FEATURES,
+            models: GEMINI_MODELS
+        });
     } catch (e: any) {
         res.status(500).json({ message: e.message });
     }
