@@ -9,8 +9,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "swagger": "tsx src/utils/swagger.ts",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "seed:vn": "tsx prisma/seed_vn.ts"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
