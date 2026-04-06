@@ -91,6 +91,33 @@ export async function processTimeUp(io: Server, matchId: string | number): Promi
     const questionId = question.id;
     const answersMap = matchState.answers.get(questionId) || new Map();
 
+    // Get correct answer for each type
+    let correctAnswer: any = null;
+    switch (question.type) {
+        case 'BUTTONS':
+            correctAnswer = question.options.findIndex((o) => o.isCorrect);
+            break;
+        case 'CHECKBOXES':
+            correctAnswer = question.options
+                .map((o, idx) => (o.isCorrect ? idx : null))
+                .filter((idx) => idx !== null);
+            break;
+        case 'REORDER':
+            correctAnswer = [...question.options]
+                .sort((a, b) => (a.order || 0) - (b.order || 0))
+                .map((o) => o.id);
+            break;
+        case 'TYPEANSWER':
+            correctAnswer = question.data?.correctAnswer;
+            break;
+        case 'LOCATION':
+            correctAnswer = {
+                latitude: question.data?.correctLatitude,
+                longitude: question.data?.correctLongitude,
+            };
+            break;
+    }
+
     // Process each player's answer
     for (const player of matchState.players) {
         const entry = answersMap.get(player.userId);
@@ -104,21 +131,14 @@ export async function processTimeUp(io: Server, matchId: string | number): Promi
             player.score += calculatePoints(submitRemainingTime);
         }
 
-        // Emit result (with correct location for LOCATION type)
-        if (question.type === 'LOCATION') {
-            io.to(String(matchId)).emit('answerResult', {
-                userId: player.userId,
-                isCorrect: result.isCorrect,
-                questionId,
-                correctLatLon: result.correctLatLon,
-            });
-        } else {
-            io.to(String(matchId)).emit('answerResult', {
-                userId: player.userId,
-                isCorrect: result.isCorrect,
-                questionId,
-            });
-        }
+        // Emit result (with correct answer info)
+        io.to(String(matchId)).emit('answerResult', {
+            userId: player.userId,
+            isCorrect: result.isCorrect,
+            questionId,
+            correctAnswer, // Send the correct answer here
+            ...(question.type === 'LOCATION' && { correctLatLon: result.correctLatLon }),
+        });
     }
 
     // Reset submitted flags for all players

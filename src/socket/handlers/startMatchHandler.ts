@@ -62,7 +62,16 @@ export async function sendNextQuestion(io: Server, matchId: string | number): Pr
         return;
     }
 
-    const question = matchState.questions[matchState.currentQuestionIndex];
+    const rawQuestion = matchState.questions[matchState.currentQuestionIndex];
+    
+    // Strip isCorrect info from options to prevent cheating
+    const question = {
+        ...rawQuestion,
+        options: rawQuestion.options.map(opt => {
+            const { isCorrect, ...rest } = opt as any;
+            return rest;
+        })
+    };
     
     // Reset timer before sending to ensure frontend gets correct max duration
     const { QUESTION_TIME_LIMIT } = await import('../constants.js');
