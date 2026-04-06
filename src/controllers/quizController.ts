@@ -81,6 +81,33 @@ export const getQuiz = async (req: Request, res: Response): Promise<void> => {
     }
 };
 
+export const exploreQuizzes = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const data = await prisma.quiz.findMany({
+            where: {
+                isPublic: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                creator: {
+                    select: { id: true, username: true },
+                },
+                category: {
+                    select: { id: true, name: true },
+                },
+                questions: {
+                    select: { id: true }, // To calculate question amount
+                },
+            },
+        });
+
+        res.status(200).json(data);
+    } catch (err) {
+        const error = err as Error;
+        res.status(400).json({ message: error.message });
+    }
+};
+
 export const getRetrieveQuiz = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     try {

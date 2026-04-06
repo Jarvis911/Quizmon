@@ -29,7 +29,7 @@
     },
     {
       "name": "Question",
-      "description": "Question CRUD supporting 6 types: buttons (MCQ), checkboxes (multi-select), range (slider), reorder (drag), location (map), type-answer (text)"
+      "description": "Question CRUD supporting 5 types: buttons (MCQ), checkboxes (multi-select), reorder (drag), location (map), type-answer (text)"
     },
     {
       "name": "Match",
@@ -2207,7 +2207,6 @@
                         "enum": [
                           "BUTTONS",
                           "CHECKBOXES",
-                          "RANGE",
                           "REORDER",
                           "LOCATION",
                           "TYPE_ANSWER"

@@ -7,8 +7,6 @@ import {
     updateButtonQuestion,
     createCheckboxQuestion,
     updateCheckboxQuestion,
-    createRangeQuestion,
-    updateRangeQuestion,
     createReorderQuestion,
     updateReorderQuestion,
     createLocationQuestion,
@@ -131,62 +129,6 @@ router.post('/checkboxes', authMiddleware, logMiddleware, upload.array('files', 
  *         description: Question updated
  */
 router.put('/checkboxes/:id', authMiddleware, upload.array('files', 5), updateCheckboxQuestion);
-
-/**
- * @swagger
- * /question/range:
- *   post:
- *     summary: Create a Range type question
- *     tags: [Question]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               files:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *     responses:
- *       201:
- *         description: Question created
- */
-router.post('/range', authMiddleware, logMiddleware, upload.array('files', 5), createRangeQuestion);
-
-/**
- * @swagger
- * /question/range/{id}:
- *   put:
- *     summary: Update a Range type question
- *     tags: [Question]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               files:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *     responses:
- *       200:
- *         description: Question updated
- */
-router.put('/range/:id', authMiddleware, logMiddleware, upload.array('files', 5), updateRangeQuestion);
 
 /**
  * @swagger

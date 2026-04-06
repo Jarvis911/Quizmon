@@ -1,6 +1,6 @@
 import haversine from 'haversine-distance';
 import { AnswerType, Question } from './types.js';
-import { QUESTION_TIME_LIMIT, LOCATION_RADIUS_1000, LOCATION_RADIUS_750, LOCATION_RADIUS_500, RANGE_CORRECT_THRESHOLD } from './constants.js';
+import { QUESTION_TIME_LIMIT, LOCATION_RADIUS_1000, LOCATION_RADIUS_750, LOCATION_RADIUS_500 } from './constants.js';
 
 interface ScoreResult {
     isCorrect: boolean;
@@ -31,13 +31,6 @@ export function checkAnswer(question: Question, answer: AnswerType | undefined):
                 }),
             };
         }
-
-        case 'RANGE':
-            return {
-                isCorrect: question.data
-                    ? Math.abs(question.data.correctValue! - (answer as number)) <= RANGE_CORRECT_THRESHOLD
-                    : false,
-            };
 
         case 'REORDER': {
             // Client sends array of IDs in new order: [id1, id2, id3]

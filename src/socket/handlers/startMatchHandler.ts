@@ -63,7 +63,17 @@ export async function sendNextQuestion(io: Server, matchId: string | number): Pr
     }
 
     const question = matchState.questions[matchState.currentQuestionIndex];
-    io.to(String(matchId)).emit('nextQuestion', { question, timer: matchState.remainingTime });
+    
+    // Reset timer before sending to ensure frontend gets correct max duration
+    const { QUESTION_TIME_LIMIT } = await import('../constants.js');
+    matchState.remainingTime = QUESTION_TIME_LIMIT;
+    await saveMatch(matchId, matchState);
+
+    io.to(String(matchId)).emit('nextQuestion', { 
+        question, 
+        timer: matchState.remainingTime,
+        isPaused: matchState.isPaused
+    });
 
     await startQuestionTimer(io, matchId);
 }

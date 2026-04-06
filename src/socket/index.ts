@@ -16,6 +16,8 @@ import {
     handleLeaveMatch,
     handleCancelMatch,
     handleAgentChat,
+    handleTogglePause,
+    handleSkipQuestion,
 } from './handlers/index.js';
 
 export let redisClient: RedisClientType;
@@ -57,6 +59,8 @@ export async function initializeSocket(server: http.Server): Promise<Server> {
         customSocket.on('leaveMatch', handleLeaveMatch(io, customSocket));
         customSocket.on('cancelMatch', handleCancelMatch(io, customSocket));
         customSocket.on('agentChat', handleAgentChat(io, customSocket));
+        customSocket.on('togglePause', handleTogglePause(io, customSocket));
+        customSocket.on('skipQuestion', handleSkipQuestion(io, customSocket));
         customSocket.on('disconnect', handleDisconnect(io, customSocket));
 
         // Lobby customization events

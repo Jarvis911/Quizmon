@@ -22,17 +22,6 @@ export function validateAnswer(question: Question, answer: AnswerType): { isVali
             }
             return { isValid: false, error: 'Invalid checkbox selection' };
 
-        case 'RANGE':
-            if (
-                typeof answer === 'number' &&
-                !!question.data &&
-                answer >= question.data.minValue! &&
-                answer <= question.data.maxValue!
-            ) {
-                return { isValid: true };
-            }
-            return { isValid: false, error: 'Invalid range value' };
-
         case 'REORDER':
             if (
                 Array.isArray(answer) &&

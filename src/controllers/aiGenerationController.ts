@@ -108,13 +108,14 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
 
             // Save generated questions
             await prisma.aIGeneratedQuestion.createMany({
-                data: generationResult.questions.map(q => ({
-                    jobId: job.id,
-                    questionText: q.questionText,
-                    questionType: q.questionType,
-                    optionsData: q.optionsData as Prisma.InputJsonValue,
-                    status: AIQuestionStatus.PENDING,
-                })),
+                data: generationResult.questions
+                    .map(q => ({
+                        jobId: job.id,
+                        questionText: q.questionText,
+                        questionType: q.questionType,
+                        optionsData: q.optionsData as Prisma.InputJsonValue,
+                        status: AIQuestionStatus.PENDING,
+                    })),
             });
 
             // Update job status
@@ -494,10 +495,6 @@ export const approveAllAndCreateQuiz = async (req: Request, res: Response): Prom
                 }));
             } else if (genQ.questionType === 'TYPEANSWER') {
                 questionData.correctAnswer = (optData.correctAnswer as string) || (optData.answer as string) || '';
-            } else if (genQ.questionType === 'RANGE') {
-                questionData.minValue = Number(optData.minValue) || 0;
-                questionData.maxValue = Number(optData.maxValue) || 100;
-                questionData.correctValue = Number(optData.correctValue) || 50;
             } else if (genQ.questionType === 'LOCATION') {
                 questionData.correctLatitude = Number(optData.correctLatitude);
                 questionData.correctLongitude = Number(optData.correctLongitude);
@@ -646,10 +643,6 @@ export const finalizeAgenticQuiz = async (req: Request, res: Response): Promise<
                 }));
             } else if (genQ.questionType === 'TYPEANSWER') {
                 questionData.correctAnswer = (optData.correctAnswer as string) || (optData.answer as string) || '';
-            } else if (genQ.questionType === 'RANGE') {
-                questionData.minValue = Number(optData.minValue) || 0;
-                questionData.maxValue = Number(optData.maxValue) || 100;
-                questionData.correctValue = Number(optData.correctValue) || 50;
             } else if (genQ.questionType === 'LOCATION') {
                 questionData.correctLatitude = Number(optData.correctLatitude);
                 questionData.correctLongitude = Number(optData.correctLongitude);

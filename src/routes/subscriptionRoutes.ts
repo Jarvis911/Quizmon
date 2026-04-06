@@ -11,6 +11,7 @@ import {
     fulfillCheckout,
     handleMomoIPN,
     getPaymentMethods,
+    checkoutFree,
 } from '../controllers/subscriptionController.js';
 
 const router: Router = Router();
@@ -118,6 +119,12 @@ router.post('/', authMiddleware, orgMiddleware, createSubscription);
  *         description: Checkout session created with payUrl
  */
 router.post('/checkout', authMiddleware, orgMiddleware, createCheckout);
+
+/**
+ * POST /subscriptions/checkout-free
+ * Purchase a 0-price plan directly without payment gateway.
+ */
+router.post('/checkout-free', authMiddleware, orgMiddleware, checkoutFree);
 
 /**
  * @swagger

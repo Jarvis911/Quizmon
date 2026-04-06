@@ -61,6 +61,7 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
                 currentQuestionIndex: 0,
                 questions: match.quiz.questions as Question[],
                 remainingTime: 0,
+                isPaused: false,
                 startTime: null,
                 endTime: null,
                 answers: new Map(),

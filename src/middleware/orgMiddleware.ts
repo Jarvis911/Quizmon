@@ -60,7 +60,7 @@ const orgMiddleware: RequestHandler = async (req, res, next) => {
             try {
                 const user = await prisma.user.findUnique({ where: { id: Number(userId) } });
                 const { createOrganization } = await import('../services/organizationService.js');
-                const orgName = user?.username ? `${user.username}'s Org` : "Personal Organization";
+                const orgName = user?.username ? `${user.username} Team` : "Personal Team";
                 const newOrg = await createOrganization(orgName, Number(userId));
                 
                 req.organizationId = newOrg.id;

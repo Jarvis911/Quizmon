@@ -114,6 +114,74 @@ export const getPaymentMethods = async (_req: Request, res: Response): Promise<v
     }
 };
 
+// ─── Free Checkout (0đ promotions) ─────────────────────────────────
+
+/**
+ * POST /subscriptions/checkout-free
+ * Purchases a plan directly when price is 0 (promotion). No payment gateway needed.
+ */
+export const checkoutFree = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { planId, promotionId, billingCycle } = req.body as {
+            planId: number;
+            promotionId: number;
+            billingCycle?: BillingCycle;
+        };
+        const organizationId = req.organizationId;
+
+        if (!organizationId) {
+            res.status(400).json({ message: 'Organization context required' });
+            return;
+        }
+
+        if (!planId || !promotionId) {
+            res.status(400).json({ message: 'planId and promotionId are required' });
+            return;
+        }
+
+        // Verify promotion exists, is active & published, and not expired
+        const promotion = await prisma.promotion.findFirst({
+            where: {
+                id: Number(promotionId),
+                planId: Number(planId),
+                isActive: true,
+                isPublished: true,
+                expiresAt: { gt: new Date() },
+            },
+        });
+
+        if (!promotion) {
+            res.status(400).json({ message: 'Promotion not found or has expired' });
+            return;
+        }
+
+        const cycle = (billingCycle ?? BillingCycle.MONTHLY) as BillingCycle;
+        const discountedPrice = cycle === BillingCycle.YEARLY
+            ? promotion.discountedPriceYearly
+            : promotion.discountedPriceMonthly;
+
+        if (discountedPrice !== 0) {
+            res.status(400).json({ message: 'This promotion is not free. Use the regular checkout.' });
+            return;
+        }
+
+        // Fulfill subscription directly (no payment gateway)
+        const orderId = `FREE_${organizationId}_${planId}_${promotionId}_${Date.now()}`;
+        const subscription = await fulfillSubscription(
+            orderId,
+            organizationId,
+            Number(planId),
+            cycle,
+            PaymentMethod.MOCK,
+        );
+
+        res.status(200).json(subscription);
+    } catch (err) {
+        console.error('[checkoutFree Error]:', err);
+        res.status(500).json({ message: (err as Error).message });
+    }
+};
+
 // ─── Existing Handlers ──────────────────────────────────────────────
 
 /**

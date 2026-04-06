@@ -107,7 +107,7 @@ passport.use(
 
                         // Auto-create personal organization for the user
                         try {
-                            const orgName = user.username ? `${user.username}'s Org` : "Personal Organization";
+                            const orgName = user.username ? `${user.username} Team` : "Personal Team";
                             const { createOrganization } = await import('../services/organizationService.js');
                             await createOrganization(orgName, user.id);
                         } catch (orgErr) {

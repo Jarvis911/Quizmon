@@ -9,6 +9,10 @@ export function handleRequestCurrentQuestion(socket: CustomSocket) {
         const question = matchState.questions[matchState.currentQuestionIndex];
         if (!question) return;
 
-        socket.emit('nextQuestion', { question, timer: matchState.remainingTime });
+        socket.emit('nextQuestion', { 
+            question, 
+            timer: matchState.remainingTime,
+            isPaused: matchState.isPaused
+        });
     };
 }

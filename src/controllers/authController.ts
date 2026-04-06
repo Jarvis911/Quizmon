@@ -28,7 +28,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
         // Auto-create personal organization for the user
         try {
-            const orgName = username ? `${username}'s Org` : "Personal Organization";
+            const orgName = username ? `${username} Team` : "Personal Team";
             await createOrganization(orgName, user.id);
         } catch (orgErr) {
             console.error('[register] Failed to create default org:', orgErr);

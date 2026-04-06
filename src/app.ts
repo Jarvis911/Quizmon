@@ -20,6 +20,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import organizationRoutes from './routes/organizationRoutes.js';
 import subscriptionRoutes from './routes/subscriptionRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import promotionRoutes from './routes/promotionRoutes.js';
 // Register payment gateways on startup
 import './services/gateways/index.js';
 import swaggerUi from 'swagger-ui-express';
@@ -61,5 +62,6 @@ app.use('/notifications', notificationRoutes);
 app.use('/organizations', organizationRoutes);
 app.use('/subscriptions', subscriptionRoutes);
 app.use('/admin', adminRoutes);
+app.use('/promotions', promotionRoutes);
 
 export default app;

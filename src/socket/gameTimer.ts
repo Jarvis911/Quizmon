@@ -24,6 +24,11 @@ export async function startQuestionTimer(io: Server, matchId: string | number): 
             return;
         }
 
+        // Skip timer update if paused
+        if (currentMatchState.isPaused) {
+            return;
+        }
+
         currentMatchState.remainingTime = Math.max(0, currentMatchState.remainingTime - 0.1);
         await saveMatch(matchId, currentMatchState);
 
@@ -37,6 +42,32 @@ export async function startQuestionTimer(io: Server, matchId: string | number): 
     }, TIME_UPDATE_INTERVAL_MS);
 
     matchIntervals.set(String(matchId), intervalId);
+}
+
+/**
+ * Skip current question and move to next one immediately (no points awarded).
+ */
+export async function skipToNextQuestion(io: Server, matchId: string | number): Promise<void> {
+    const matchState = await getMatch(matchId);
+    if (!matchState) return;
+
+    // Clear timer if still running
+    const interval = matchIntervals.get(String(matchId));
+    if (interval) {
+        clearInterval(interval);
+        matchIntervals.delete(String(matchId));
+    }
+
+    // Reset submitted flags for all players
+    matchState.players.forEach((p) => (p.submitted = new Set()));
+    matchState.isPaused = false; // Reset pause state when moving to next question
+
+    matchState.currentQuestionIndex++;
+    await saveMatch(matchId, matchState);
+
+    // Import dynamically to avoid circular dependency
+    const { sendNextQuestion } = await import('./handlers/startMatchHandler.js');
+    await sendNextQuestion(io, matchId);
 }
 
 /**

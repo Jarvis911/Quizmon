@@ -12,5 +12,3 @@ export const LOCATION_RADIUS_1000 = 5000;
 export const LOCATION_RADIUS_750 = 15000;
 export const LOCATION_RADIUS_500 = 30000;
 
-// Range answer threshold
-export const RANGE_CORRECT_THRESHOLD = 5;

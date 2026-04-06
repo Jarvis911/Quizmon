@@ -18,6 +18,7 @@ export interface MatchState {
     currentQuestionIndex: number;
     questions: Question[];
     remainingTime: number;
+    isPaused: boolean;
     startTime: Date | null;
     endTime: Date | null;
     answers: Map<number, Map<number, { answer: AnswerType; submitRemainingTime: number }>>;
@@ -28,7 +29,6 @@ export interface Question {
     type: string;
     options: { id: number; isCorrect?: boolean; order?: number; text: string }[];
     data?: {
-        minValue?: number; maxValue?: number; correctValue?: number;  // RANGE
         correctAnswer?: string;                                       // TYPEANSWER
         correctLatitude?: number; correctLongitude?: number;           // LOCATION
         radius1000?: number; radius750?: number; radius500?: number;  // LOCATION Scoring

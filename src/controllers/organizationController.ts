@@ -52,7 +52,7 @@ export const getOrgs = async (req: Request, res: Response): Promise<void> => {
             // Auto-create personal organization for users who don't have one (legacy users)
             const user = await prisma.user.findUnique({ where: { id: userId } });
             if (user) {
-                const orgName = user.username ? `${user.username}'s Org` : "Personal Organization";
+                const orgName = user.username ? `${user.username} Team` : "Personal Team";
                 await createOrganization(orgName, userId);
                 orgs = await getOrganizations(userId);
             }

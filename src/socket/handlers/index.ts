@@ -10,3 +10,5 @@ export { handleSurrender } from './surrenderHandler.js';
 export { handleLeaveMatch } from './leaveMatchHandler.js';
 export { handleCancelMatch } from './cancelMatchHandler.js';
 export { handleAgentChat } from './agentChatHandler.js';
+export { handleTogglePause } from './togglePauseHandler.js';
+export { handleSkipQuestion } from './skipQuestionHandler.js';

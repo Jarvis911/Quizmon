@@ -25,9 +25,6 @@ export interface QuestionData {
     media?: MediaItem[];
     options?: QuestionOption[];
     // Type-specific fields (will be stored in `data` JSON column)
-    minValue?: number;
-    maxValue?: number;
-    correctValue?: number;
     correctAnswer?: string;
     correctLatitude?: number;
     correctLongitude?: number;
@@ -40,15 +37,9 @@ export interface QuestionData {
 /** Build the `data` JSON column value based on question type */
 function buildQuestionData(
     type: QuestionType,
-    fields: Pick<QuestionData, 'minValue' | 'maxValue' | 'correctValue' | 'correctAnswer' | 'correctLatitude' | 'correctLongitude' | 'radius1000' | 'radius750' | 'radius500' | 'mapType'>
+    fields: Pick<QuestionData, 'correctAnswer' | 'correctLatitude' | 'correctLongitude' | 'radius1000' | 'radius750' | 'radius500' | 'mapType'>
 ): Prisma.InputJsonValue | undefined {
     switch (type) {
-        case 'RANGE':
-            return {
-                minValue: fields.minValue!,
-                maxValue: fields.maxValue!,
-                correctValue: fields.correctValue!,
-            };
         case 'TYPEANSWER':
             return { correctAnswer: fields.correctAnswer! };
         case 'LOCATION':
@@ -74,9 +65,6 @@ export const createQuestion = async (questionData: QuestionData) => {
             type,
             media = [],
             options,
-            minValue,
-            maxValue,
-            correctValue,
             correctAnswer,
             correctLatitude,
             correctLongitude,
@@ -87,7 +75,7 @@ export const createQuestion = async (questionData: QuestionData) => {
         } = questionData;
 
         const dataJson = buildQuestionData(type, {
-            minValue, maxValue, correctValue, correctAnswer, correctLatitude, correctLongitude,
+            correctAnswer, correctLatitude, correctLongitude,
             radius1000, radius750, radius500, mapType
         });
 
@@ -148,9 +136,6 @@ export const updateQuestion = async (id: number, questionData: Partial<QuestionD
             type,
             media = [],
             options = [],
-            minValue,
-            maxValue,
-            correctValue,
             correctAnswer,
             correctLatitude,
             correctLongitude,
@@ -162,7 +147,7 @@ export const updateQuestion = async (id: number, questionData: Partial<QuestionD
 
         const dataJson = type
             ? buildQuestionData(type, {
-                  minValue, maxValue, correctValue, correctAnswer, correctLatitude, correctLongitude,
+                  correctAnswer, correctLatitude, correctLongitude,
                   radius1000, radius750, radius500, mapType
               })
             : undefined;

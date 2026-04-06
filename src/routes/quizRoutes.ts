@@ -2,7 +2,7 @@ import { Router } from 'express';
 import authMiddleware from '../middleware/authMiddleware.js';
 import orgMiddleware from '../middleware/orgMiddleware.js';
 import upload from '../middleware/uploadMiddleware.js';
-import { getQuiz, createQuiz, updateQuiz, getRetrieveQuiz, getQuestionByQuiz, checkUserRateQuiz, getQuizRating } from '../controllers/quizController.js';
+import { getQuiz, createQuiz, updateQuiz, getRetrieveQuiz, getQuestionByQuiz, checkUserRateQuiz, getQuizRating, exploreQuizzes } from '../controllers/quizController.js';
 
 const router: Router = Router();
 
@@ -92,6 +92,19 @@ router.put('/:id', authMiddleware, orgMiddleware, upload.single('file'), updateQ
  *         description: List of quizzes
  */
 router.get('/', authMiddleware, orgMiddleware, getQuiz);
+
+// Explore Public Quizzes
+/**
+ * @swagger
+ * /quiz/explore:
+ *   get:
+ *     summary: Get all public quizzes
+ *     tags: [Quiz]
+ *     responses:
+ *       200:
+ *         description: List of public quizzes
+ */
+router.get('/explore', exploreQuizzes);
 
 // Get Quiz Questions
 /**

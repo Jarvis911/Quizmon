@@ -1,0 +1,29 @@
+import { Server } from 'socket.io';
+import { CustomSocket } from '../types.js';
+import { getMatch, saveMatch } from '../matchStore.js';
+
+export function handleTogglePause(io: Server, socket: CustomSocket) {
+    return async ({ matchId }: { matchId: string | number }) => {
+        const matchState = await getMatch(matchId);
+
+        if (!matchState) {
+            return socket.emit('error', 'Match not found');
+        }
+
+        if (!socket.userId || Number(socket.userId) !== Number(matchState.hostId)) {
+            return socket.emit('error', 'Only host can toggle pause');
+        }
+
+        if (matchState.state !== 'started') {
+            return socket.emit('error', 'Can only pause a started match');
+        }
+
+        matchState.isPaused = !matchState.isPaused;
+        await saveMatch(matchId, matchState);
+
+        console.log(`Match ${matchId} pause status: ${matchState.isPaused}`);
+
+        // Notify all players in the match
+        io.to(String(matchId)).emit('pauseStatusUpdated', { isPaused: matchState.isPaused });
+    };
+}

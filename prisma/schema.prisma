@@ -126,7 +126,6 @@ model QuestionMedia {
 enum QuestionType {
   BUTTONS
   CHECKBOXES
-  RANGE
   REORDER
   TYPEANSWER
   LOCATION
@@ -528,6 +527,7 @@ model Plan {
 
   features      PlanFeature[]
   subscriptions Subscription[]
+  promotions    Promotion[]
 }
 
 model PlanFeature {
@@ -644,4 +644,39 @@ model SystemReport {
   updatedAt  DateTime     @updatedAt
 
   @@index([status])
+}
+
+// ==================== PROMOTION & CAMPAIGN MODELS ====================
+
+model Promotion {
+  id          Int      @id @default(autoincrement())
+  title       String   // e.g. "Gói Giáo Viên Pro - MIỄN PHÍ!"
+  subtitle    String?  // e.g. "Ưu đãi áp dụng đến hết tháng 9"
+  description String?
+
+  // Liên kết gói được khuyến mãi
+  planId      Int
+  plan        Plan     @relation(fields: [planId], references: [id])
+
+  // Giá sau khuyến mãi (0 = miễn phí)
+  discountedPriceMonthly Float @default(0)
+  discountedPriceYearly  Float @default(0)
+
+  // Thời gian hiệu lực
+  expiresAt   DateTime
+
+  // Trạng thái banner
+  isActive    Boolean  @default(true)   // Promotion còn hợp lệ (chưa hết hạn, chưa bị xóa)
+  isPublished Boolean  @default(false)  // Đang hiển thị trên banner
+
+  // Style banner
+  bannerColor String?  @default("#0078D4")
+  badgeText   String?  @default("KHUYẾN MÃI") // Badge label trên plan card
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isPublished])
+  @@index([isActive])
+  @@index([planId])
 }
