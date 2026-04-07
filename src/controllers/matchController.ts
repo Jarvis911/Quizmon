@@ -146,12 +146,28 @@ export const getMatch = async (req: Request, res: Response): Promise<void> => {
 
 export const updateMatch = async (req: Request, res: Response): Promise<void> => {
     try {
-        const id = req.params.id as string;
+        const idOrPin = req.params.id as string;
         const data = req.body as UpdateMatchBody;
+
+        // Resolve internal ID from PIN if needed
+        let matchId: number;
+        if (idOrPin.length === 6 && !isNaN(Number(idOrPin))) {
+            const matchRecord = await prisma.match.findUnique({
+                where: { pin: idOrPin },
+                select: { id: true },
+            });
+            if (!matchRecord) {
+                res.status(404).json({ message: 'Match not found' });
+                return;
+            }
+            matchId = matchRecord.id;
+        } else {
+            matchId = Number(idOrPin);
+        }
 
         const match = await prisma.match.update({
             where: {
-                id: Number(id),
+                id: matchId,
             },
             data,
             include: {
@@ -182,11 +198,27 @@ export const updateMatch = async (req: Request, res: Response): Promise<void> =>
 
 export const deleteMatch = async (req: Request, res: Response): Promise<void> => {
     try {
-        const id = req.params.id as string;
+        const idOrPin = req.params.id as string;
         const userId = req.userId;
 
+        // Resolve internal ID from PIN if needed
+        let matchId: number;
+        if (idOrPin.length === 6 && !isNaN(Number(idOrPin))) {
+            const matchRecord = await prisma.match.findUnique({
+                where: { pin: idOrPin },
+                select: { id: true, hostId: true },
+            });
+            if (!matchRecord) {
+                res.status(404).json({ message: 'Match not found' });
+                return;
+            }
+            matchId = matchRecord.id;
+        } else {
+            matchId = Number(idOrPin);
+        }
+
         const match = await prisma.match.findUnique({
-            where: { id: Number(id) },
+            where: { id: matchId },
         });
 
         if (!match || match.hostId !== Number(userId)) {
@@ -195,7 +227,7 @@ export const deleteMatch = async (req: Request, res: Response): Promise<void> =>
         }
 
         await prisma.match.delete({
-            where: { id: Number(id) },
+            where: { id: matchId },
         });
 
         res.status(200).json({ message: 'Match deleted successfully' });

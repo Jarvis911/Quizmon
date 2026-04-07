@@ -3,7 +3,8 @@ import { CustomSocket } from '../types.js';
 import { getMatch, saveMatch } from '../matchStore.js';
 
 export function handleTogglePause(io: Server, socket: CustomSocket) {
-    return async ({ matchId }: { matchId: string | number }) => {
+    return async ({ matchId: rawMatchId }: { matchId: string | number }) => {
+        const matchId = String(rawMatchId); // Normalize to string
         const matchState = await getMatch(matchId);
 
         if (!matchState) {

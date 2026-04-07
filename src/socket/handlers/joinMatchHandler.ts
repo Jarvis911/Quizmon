@@ -13,7 +13,8 @@ import {
 } from '../matchStore.js';
 
 export function handleJoinMatch(io: Server, socket: CustomSocket) {
-    return async ({ matchId, userId, username, displayName, avatarUrl }: JoinMatchPayload) => {
+    return async ({ matchId: rawMatchId, userId, username, displayName, avatarUrl }: JoinMatchPayload) => {
+        const matchId = String(rawMatchId); // Normalize to string for consistent Redis key lookups
         // Check if user is already in a match
         const currentUserMatchId = await getUserMatch(userId);
         
@@ -23,7 +24,17 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
                 // We MUST set userId here so if they choose to "resign" from the current match,
                 // the leaveMatch handler (which depends on socket.userId) will work.
                 socket.userId = Number(userId);
-                return socket.emit('alreadyInMatch', { currentMatchId: currentUserMatchId });
+                
+                // Get the PIN for the current match
+                const existingMatch = await prisma.match.findUnique({
+                    where: { id: Number(currentUserMatchId) },
+                    select: { pin: true }
+                });
+                
+                return socket.emit('alreadyInMatch', { 
+                    currentMatchId: currentUserMatchId,
+                    currentMatchPin: existingMatch?.pin 
+                });
             }
             // If they are in the same match, we allow them to continue to join and resubscribe to the socket room.
             // And potentially update their socket properties.

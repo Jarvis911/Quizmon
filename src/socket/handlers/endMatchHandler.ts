@@ -60,7 +60,8 @@ export async function endMatch(io: Server, matchId: string | number): Promise<vo
 }
 
 export function handleEndMatch(io: Server, socket: CustomSocket) {
-    return async ({ matchId }: { matchId: string | number }) => {
+    return async ({ matchId: rawMatchId }: { matchId: string | number }) => {
+        const matchId = String(rawMatchId); // Normalize to string
         const matchState = await getMatch(matchId);
         if (!matchState) return;
 

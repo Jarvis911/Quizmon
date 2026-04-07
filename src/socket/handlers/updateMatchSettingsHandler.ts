@@ -3,7 +3,8 @@ import { CustomSocket, UpdateMatchSettingsPayload } from '../types.js';
 import { getMatch, hasMatch } from '../matchStore.js';
 
 export function handleUpdateMatchSettings(io: Server, socket: CustomSocket) {
-    return async ({ matchId, timePerQuestion, musicUrl, backgroundUrl }: UpdateMatchSettingsPayload) => {
+    return async ({ matchId: rawMatchId, timePerQuestion, musicUrl, backgroundUrl }: UpdateMatchSettingsPayload) => {
+        const matchId = String(rawMatchId); // Normalize to string
         if (!(await hasMatch(matchId))) {
             return socket.emit('error', 'Match not found');
         }
