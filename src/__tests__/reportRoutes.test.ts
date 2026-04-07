@@ -62,7 +62,7 @@ describe('Report Routes', () => {
             const response = await request(app).get('/reports/excel/1');
 
             expect(response.status).toBe(403);
-            expect(response.body.message).toBe('Only the host can export reports');
+            expect(response.body.message).toBe('You do not have permission to export this report');
         });
     });
 });
