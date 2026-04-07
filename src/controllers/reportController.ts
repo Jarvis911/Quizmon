@@ -30,9 +30,15 @@ export const generateExcelReport = async (req: Request, res: Response): Promise<
             return;
         }
 
-        // Must be the host/teacher to export report
-        if (match.hostId !== Number(userId)) {
-            res.status(403).json({ message: 'Only the host can export reports' });
+        const requesterId = Number(userId);
+        const isHost = match.hostId === requesterId;
+        const isParticipant =
+            (match.participants ?? []).some(p => p.userId === requesterId) ||
+            (match.matchResults ?? []).some(mr => mr.userId === requesterId);
+
+        // Host can export full report; participants can export their own (non-classroom and homework).
+        if (!isHost && !isParticipant) {
+            res.status(403).json({ message: 'You do not have permission to export this report' });
             return;
         }
 
@@ -61,6 +67,7 @@ export const generateExcelReport = async (req: Request, res: Response): Promise<
         // ---------------- Sheet 2: Learner Results ----------------
         const resultsSheet = workbook.addWorksheet('Learner Results');
         resultsSheet.columns = [
+            { header: 'User ID', key: 'userId', width: 12 },
             { header: 'Participant Name', key: 'name', width: 30 },
             { header: 'Email (if logged in)', key: 'email', width: 30 },
             { header: 'Status', key: 'status', width: 15 },
@@ -70,26 +77,98 @@ export const generateExcelReport = async (req: Request, res: Response): Promise<
         ];
         resultsSheet.getRow(1).font = { bold: true };
 
-        match.participants.forEach(p => {
-            // Match result mapping to get email if available
-            const result = match.matchResults.find(mr => mr.userId === p.userId);
+        const participantsByUserId = new Map<number, typeof match.participants[number]>();
+        for (const p of match.participants) {
+            if (p.userId) participantsByUserId.set(p.userId, p);
+        }
+
+        const resultByUserId = new Map<number, typeof match.matchResults[number]>();
+        for (const mr of match.matchResults) {
+            resultByUserId.set(mr.userId, mr);
+        }
+
+        // If requester is not host, only export their own row to avoid leaking classroom/other players data.
+        if (!isHost) {
+            const p = participantsByUserId.get(requesterId);
+            const mr = resultByUserId.get(requesterId);
+
             let timeTaken = 'N/A';
-            if (p.startTime && p.endTime) {
+            if (p?.startTime && p?.endTime) {
                 const diffMs = p.endTime.getTime() - p.startTime.getTime();
                 timeTaken = `${Math.floor(diffMs / 60000)}m ${Math.floor((diffMs % 60000) / 1000)}s`;
             }
 
-            const totalScore = p.answers.reduce((acc, ans) => acc + ans.score, 0);
+            const totalScore = p ? p.answers.reduce((acc, ans) => acc + ans.score, 0) : (mr?.score ?? 0);
 
             resultsSheet.addRow({
-                name: p.displayName || 'Anonymous',
-                email: result?.user?.email || 'Guest',
-                status: p.status,
-                joined: p.joinedAt ? p.joinedAt.toLocaleString() : 'N/A',
+                userId: requesterId,
+                name: p?.displayName || mr?.user?.username || 'Player',
+                email: mr?.user?.email || 'N/A',
+                status: p?.status || 'N/A',
+                joined: p?.joinedAt ? p.joinedAt.toLocaleString() : 'N/A',
                 time: timeTaken,
-                score: totalScore
+                score: totalScore,
             });
-        });
+        }
+        // Host exporting classroom homework: include *all* students, even if not started.
+        else if (match.classroomId && match.mode === 'HOMEWORK') {
+            const classroomStudents = await prisma.classroomMember.findMany({
+                where: {
+                    classroomId: match.classroomId,
+                    role: 'STUDENT',
+                },
+                include: {
+                    user: { select: { id: true, username: true, email: true } }
+                },
+                orderBy: { joinDate: 'asc' }
+            });
+
+            for (const member of classroomStudents) {
+                const p = participantsByUserId.get(member.user.id);
+                const mr = resultByUserId.get(member.user.id);
+
+                let timeTaken = 'N/A';
+                if (p?.startTime && p?.endTime) {
+                    const diffMs = p.endTime.getTime() - p.startTime.getTime();
+                    timeTaken = `${Math.floor(diffMs / 60000)}m ${Math.floor((diffMs % 60000) / 1000)}s`;
+                }
+
+                const totalScore = p ? p.answers.reduce((acc, ans) => acc + ans.score, 0) : 0;
+
+                resultsSheet.addRow({
+                    userId: member.user.id,
+                    name: p?.displayName || member.user.username || 'Student',
+                    email: mr?.user?.email || member.user.email || 'N/A',
+                    status: p?.status || 'NOT_STARTED',
+                    joined: p?.joinedAt ? p.joinedAt.toLocaleString() : 'N/A',
+                    time: timeTaken,
+                    score: totalScore
+                });
+            }
+        } else {
+            // Non-classroom matches: report only participants
+            for (const p of match.participants) {
+                const mr = p.userId ? resultByUserId.get(p.userId) : undefined;
+
+                let timeTaken = 'N/A';
+                if (p.startTime && p.endTime) {
+                    const diffMs = p.endTime.getTime() - p.startTime.getTime();
+                    timeTaken = `${Math.floor(diffMs / 60000)}m ${Math.floor((diffMs % 60000) / 1000)}s`;
+                }
+
+                const totalScore = p.answers.reduce((acc, ans) => acc + ans.score, 0);
+
+                resultsSheet.addRow({
+                    userId: p.userId ?? '',
+                    name: p.displayName || 'Anonymous',
+                    email: mr?.user?.email || 'Guest',
+                    status: p.status,
+                    joined: p.joinedAt ? p.joinedAt.toLocaleString() : 'N/A',
+                    time: timeTaken,
+                    score: totalScore
+                });
+            }
+        }
 
         // Setup response headers for download
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
