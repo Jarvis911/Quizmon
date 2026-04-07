@@ -5,7 +5,8 @@ import { validateAnswer } from '../answerValidator.js';
 import { processTimeUp } from '../gameTimer.js';
 
 export function handleSubmitAnswer(io: Server, socket: CustomSocket) {
-    return async ({ matchId, userId, questionId, answer }: SubmitAnswerPayload) => {
+    return async ({ matchId: rawMatchId, userId, questionId, answer }: SubmitAnswerPayload) => {
+        const matchId = String(rawMatchId); // Normalize to string
         const matchState = await getMatch(matchId);
 
         if (!matchState || matchState.state !== 'started') {

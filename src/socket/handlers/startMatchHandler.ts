@@ -5,7 +5,8 @@ import { getMatch, saveMatch } from '../matchStore.js';
 import { startQuestionTimer } from '../gameTimer.js';
 
 export function handleStartMatch(io: Server, socket: CustomSocket) {
-    return async ({ matchId }: StartMatchPayload) => {
+    return async ({ matchId: rawMatchId }: StartMatchPayload) => {
+        const matchId = String(rawMatchId); // Normalize to string
         const matchState = await getMatch(matchId);
 
         if (!matchState) {

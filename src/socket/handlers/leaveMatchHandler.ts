@@ -5,7 +5,8 @@ import { endMatch } from './endMatchHandler.js';
 import { handleCancelMatch } from './cancelMatchHandler.js';
 
 export function handleLeaveMatch(io: Server, socket: CustomSocket) {
-    return async ({ matchId, userId: payloadUserId }: { matchId: string; userId?: number }) => {
+    return async ({ matchId: rawMatchId, userId: payloadUserId }: { matchId: string | number; userId?: number }) => {
+        const matchId = String(rawMatchId); // Normalize to string
         if (!(await hasMatch(matchId))) {
             return socket.emit('error', 'Match not found');
         }
@@ -35,19 +36,19 @@ export function handleLeaveMatch(io: Server, socket: CustomSocket) {
                 await removeUserMatch(userId);
                 
                 socket.emit('leftMatch');
-                socket.leave(matchId);
+                socket.leave(String(matchId));
                 if (socket.matchId === matchId) {
                     socket.matchId = undefined;
                 }
                 
-                io.to(matchId).emit('playerLeft', remainingPlayers);
-                io.to(matchId).emit('hostChanged', { newHostId: Number(newHostId) });
+                io.to(String(matchId)).emit('playerLeft', remainingPlayers);
+                io.to(String(matchId)).emit('hostChanged', { newHostId: Number(newHostId) });
                 return;
             } else {
                 console.log(`Host ${userId} left match ${matchId}, cleaning up Redis state as no players left`);
                 // Tell the host they left successfully FIRST before broadcasting destruction
                 socket.emit('leftMatch');
-                socket.leave(matchId);
+                socket.leave(String(matchId));
                 if (socket.matchId === matchId) {
                     socket.matchId = undefined;
                 }
@@ -65,7 +66,7 @@ export function handleLeaveMatch(io: Server, socket: CustomSocket) {
         await removeUserMatch(userId);
 
         // Leave the socket room
-        socket.leave(matchId);
+        socket.leave(String(matchId));
         if (socket.matchId === matchId) {
             socket.matchId = undefined;
         }
@@ -76,7 +77,7 @@ export function handleLeaveMatch(io: Server, socket: CustomSocket) {
         socket.emit('leftMatch');
 
         // Notify remaining players
-        io.to(matchId).emit('playerLeft', matchState.players);
+        io.to(String(matchId)).emit('playerLeft', matchState.players);
 
         // End match if no players left and the match hasn't started natively (e.g. host leaves)
         if (matchState.players.length === 0) {

@@ -4,7 +4,8 @@ import { getMatch } from '../matchStore.js';
 import { skipToNextQuestion } from '../gameTimer.js';
 
 export function handleSkipQuestion(io: Server, socket: CustomSocket) {
-    return async ({ matchId }: { matchId: string | number }) => {
+    return async ({ matchId: rawMatchId }: { matchId: string | number }) => {
+        const matchId = String(rawMatchId); // Normalize to string
         const matchState = await getMatch(matchId);
 
         if (!matchState) {

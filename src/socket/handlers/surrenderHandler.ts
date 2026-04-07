@@ -4,7 +4,8 @@ import { getMatch, hasMatch, removeUserMatch, saveMatch } from '../matchStore.js
 import { endMatch } from './endMatchHandler.js';
 
 export function handleSurrender(io: Server, socket: CustomSocket) {
-    return async ({ matchId }: { matchId: string }) => {
+    return async ({ matchId: rawMatchId }: { matchId: string | number }) => {
+        const matchId = String(rawMatchId); // Normalize to string
         if (!(await hasMatch(matchId))) {
             return socket.emit('error', 'Match not found');
         }
@@ -27,7 +28,7 @@ export function handleSurrender(io: Server, socket: CustomSocket) {
         await removeUserMatch(userId);
 
         // Leave the socket room
-        socket.leave(matchId);
+        socket.leave(String(matchId));
         socket.matchId = undefined;
         socket.userId = undefined;
 
@@ -37,13 +38,13 @@ export function handleSurrender(io: Server, socket: CustomSocket) {
         socket.emit('surrendered');
 
         // Notify remaining players
-        io.to(matchId).emit('playerSurrendered', {
+        io.to(String(matchId)).emit('playerSurrendered', {
             userId,
             remainingPlayers: matchState.players,
         });
 
         // Update scores for remaining players
-        io.to(matchId).emit('updatedScores', matchState.players);
+        io.to(String(matchId)).emit('updatedScores', matchState.players);
 
         // End match if no players left
         if (matchState.players.length === 0) {

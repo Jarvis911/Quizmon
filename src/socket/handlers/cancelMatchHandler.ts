@@ -4,7 +4,8 @@ import { CustomSocket } from '../types.js';
 import { getMatch, deleteMatch, removeUserMatch } from '../matchStore.js';
 
 export function handleCancelMatch(io: Server, socket: CustomSocket) {
-    return async ({ matchId }: { matchId: string }) => {
+    return async ({ matchId: rawMatchId }: { matchId: string | number }) => {
+        const matchId = String(rawMatchId); // Normalize to string
         const matchState = await getMatch(matchId);
         if (!matchState) {
             return socket.emit('error', 'Match not found');
@@ -23,7 +24,7 @@ export function handleCancelMatch(io: Server, socket: CustomSocket) {
         console.log(`Host ${socket.userId} is cancelling match ${matchId}`);
 
         // Notify all players in the room
-        io.to(matchId).emit('matchCancelled', { message: 'Phòng đã bị hủy bởi chủ phòng.' });
+        io.to(String(matchId)).emit('matchCancelled', { message: 'Phòng đã bị hủy bởi chủ phòng.' });
 
         // Clean up match state for all players
         const players = [...matchState.players];
@@ -41,7 +42,7 @@ export function handleCancelMatch(io: Server, socket: CustomSocket) {
         }
 
         // Force all sockets to leave the room to prevent ghost events
-        io.in(matchId).socketsLeave(matchId);
+        io.in(String(matchId)).socketsLeave(String(matchId));
 
         console.log(`Match ${matchId} cancelled and cleaned up by host`);
     };
