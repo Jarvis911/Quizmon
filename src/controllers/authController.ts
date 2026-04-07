@@ -73,7 +73,8 @@ export const googleLogin = (req: Request, res: Response): void => {
 export const googleCallback = (req: Request, res: Response): void => {
     passport.authenticate('google', { session: false }, (err: Error | null, user: Express.User | false) => {
         if (err || !user) {
-            return res.redirect('http://localhost:5173/login?error=Google auth failed');
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            return res.redirect(`${frontendUrl}/login?error=Google auth failed`);
         }
 
         const typedUser = user as { id: number; username: string; email: string };
@@ -88,6 +89,7 @@ export const googleCallback = (req: Request, res: Response): void => {
             username: typedUser.username,
             email: typedUser.email
         }));
-        res.redirect(`http://localhost:5173/login?token=${token}&user=${userData}`);
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        res.redirect(`${frontendUrl}/login?token=${token}&user=${userData}`);
     })(req, res);
 };

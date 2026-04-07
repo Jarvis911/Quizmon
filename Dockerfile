@@ -19,7 +19,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # Expose
-EXPOSE 5000
+EXPOSE 3000
 
 # Command: sync schema then start the server
 CMD ["sh", "-c", "npx prisma db push && node dist/server.js"]
