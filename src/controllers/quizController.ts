@@ -61,7 +61,10 @@ export const getQuiz = async (req: Request, res: Response): Promise<void> => {
         const data = await prisma.quiz.findMany({
             where: {
                 creatorId: Number(req.userId),
-                ...(req.organizationId ? { organizationId: req.organizationId } : {}),
+                OR: [
+                    { organizationId: req.organizationId ?? null },
+                    { organizationId: null }
+                ],
             },
             orderBy: { id: 'asc' },
             include: {
@@ -290,3 +293,41 @@ export const checkUserRateQuiz = async (req: Request, res: Response): Promise<vo
         res.status(500).json({ message: error.message });
     }
 };
+
+export const deleteQuiz = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const userId = Number(req.userId);
+
+    try {
+        const quiz = await prisma.quiz.findUnique({
+            where: { id: Number(id) },
+            select: { creatorId: true, organizationId: true },
+        });
+
+        if (!quiz) {
+            res.status(404).json({ message: 'Quiz not found' });
+            return;
+        }
+
+        // Ownership or Org check
+        if (quiz.creatorId !== userId) {
+            if (req.organizationId && quiz.organizationId === req.organizationId) {
+                // Allow deletion if in same org
+            } else {
+                res.status(403).json({ message: 'You do not have permission to delete this quiz' });
+                return;
+            }
+        }
+
+        await prisma.quiz.delete({
+            where: { id: Number(id) },
+        });
+
+        res.status(200).json({ message: 'Quiz deleted successfully' });
+    } catch (err) {
+        const error = err as Error;
+        console.error('Delete Quiz Error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+

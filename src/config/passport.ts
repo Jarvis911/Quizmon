@@ -39,7 +39,12 @@ passport.use(
         async (username, password, done) => {
             try {
                 const user = await prisma.user.findFirst({
-                    where: { username },
+                    where: {
+                        OR: [
+                            { username: username },
+                            { email: username },
+                        ],
+                    },
                 });
 
                 if (!user) {

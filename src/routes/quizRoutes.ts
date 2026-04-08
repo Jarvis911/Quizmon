@@ -2,7 +2,7 @@ import { Router } from 'express';
 import authMiddleware from '../middleware/authMiddleware.js';
 import orgMiddleware from '../middleware/orgMiddleware.js';
 import upload from '../middleware/uploadMiddleware.js';
-import { getQuiz, createQuiz, updateQuiz, getRetrieveQuiz, getQuestionByQuiz, checkUserRateQuiz, getQuizRating, exploreQuizzes } from '../controllers/quizController.js';
+import { getQuiz, createQuiz, updateQuiz, deleteQuiz, getRetrieveQuiz, getQuestionByQuiz, checkUserRateQuiz, getQuizRating, exploreQuizzes } from '../controllers/quizController.js';
 
 const router: Router = Router();
 
@@ -183,5 +183,30 @@ router.get('/:id/rated', authMiddleware, orgMiddleware, checkUserRateQuiz);
  *         description: Quiz rating
  */
 router.get('/:id/rating', getQuizRating);
+
+// Delete Quiz
+/**
+ * @swagger
+ * /quiz/{id}:
+ *   delete:
+ *     summary: Delete a quiz
+ *     tags: [Quiz]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Quiz deleted successfully
+ *       404:
+ *         description: Quiz not found
+ *       403:
+ *         description: Permission denied
+ */
+router.delete('/:id', authMiddleware, orgMiddleware, deleteQuiz);
 
 export default router;

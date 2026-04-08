@@ -451,3 +451,42 @@ export const updateTypeAnswerQuestion = async (req: Request, res: Response): Pro
         res.status(500).json({ message: 'Server error during type answer question updating' });
     }
 };
+
+export const deleteQuestion = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const userId = Number(req.userId);
+
+    try {
+        const question = await prisma.question.findUnique({
+            where: { id: Number(id) },
+            include: { quiz: true },
+        });
+
+        if (!question) {
+            res.status(404).json({ message: 'Question not found' });
+            return;
+        }
+
+        // Ownership check
+        if (question.quiz.creatorId !== userId) {
+            // Check if user is in the same organization as the quiz
+            if (req.organizationId && question.quiz.organizationId === req.organizationId) {
+                // Allow deletion by same org
+            } else {
+                res.status(403).json({ message: 'You do not have permission to delete this question' });
+                return;
+            }
+        }
+
+        await prisma.question.delete({
+            where: { id: Number(id) },
+        });
+
+        res.status(200).json({ message: 'Question deleted successfully' });
+    } catch (err) {
+        const error = err as Error;
+        console.error('Delete Question Error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+

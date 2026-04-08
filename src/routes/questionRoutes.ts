@@ -14,6 +14,7 @@ import {
     createTypeAnswerQuestion,
     updateTypeAnswerQuestion,
     getRetrieveQuestion,
+    deleteQuestion,
 } from '../controllers/questionController.js';
 
 const router: Router = Router();
@@ -293,5 +294,30 @@ router.put('/typeanswer/:id', authMiddleware, logMiddleware, upload.array('files
  *         description: Question details
  */
 router.get('/:id', getRetrieveQuestion);
+
+// Delete Question
+/**
+ * @swagger
+ * /question/{id}:
+ *   delete:
+ *     summary: Delete a question
+ *     tags: [Question]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Question deleted successfully
+ *       404:
+ *         description: Question not found
+ *       403:
+ *         description: Permission denied
+ */
+router.delete('/:id', authMiddleware, deleteQuestion);
 
 export default router;
