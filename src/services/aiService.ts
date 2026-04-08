@@ -37,6 +37,13 @@ export interface AIGenerationResponse extends AIQuizMetadata {
     tokenUsage?: number;
 }
 
+export interface ImagePart {
+    inlineData: {
+        data: string;
+        mimeType: string;
+    };
+}
+
 const QUESTION_TYPE_DESCRIPTIONS: Record<string, string> = {
     BUTTONS: 'Multiple choice with exactly one correct answer. Provide 4 options with "text" and "isCorrect" (boolean) fields.',
     CHECKBOXES: 'Multiple choice with one or more correct answers. Provide 4 options with "text" and "isCorrect" (boolean) fields.',
@@ -49,7 +56,8 @@ function buildPrompt(
     instruction: string | null,
     pdfText: string | null,
     questionCount: number,
-    questionTypes: QuestionType[]
+    questionTypes: QuestionType[],
+    hasImages: boolean = false
 ): string {
     const typeDescriptions = questionTypes
         .map(t => `- ${t}: ${QUESTION_TYPE_DESCRIPTIONS[t] || t}`)
@@ -58,8 +66,9 @@ function buildPrompt(
     const contextParts: string[] = [];
     if (instruction) contextParts.push(`User instruction: ${instruction}`);
     if (pdfText) contextParts.push(`Content from PDF document:\n---\n${pdfText.substring(0, 30000)}\n---`);
+    if (hasImages) contextParts.push(`I have also uploaded some images (photos of exam papers or documents). Please analyze these images to extract questions.`);
 
-    return `You are a quiz question generator. Generate exactly ${questionCount} quiz questions based on the following context.
+    return `You are a quiz question generator. Generate exactly ${questionCount} quiz questions based on the provided context (instruction, PDF text, or images).
 
 ${contextParts.join('\n\n')}
 
@@ -109,15 +118,22 @@ JSON object:`;
 export async function generateQuestions(
     instruction: string | null,
     pdfText: string | null,
+    imageParts: ImagePart[] | null,
     questionCount: number,
     questionTypes: QuestionType[]
 ): Promise<AIGenerationResponse> {
     const modelName = await getModelForFeature('QUIZ_GENERATION');
     const model = genAI.getGenerativeModel({ model: modelName });
 
-    const prompt = buildPrompt(instruction, pdfText, questionCount, questionTypes);
+    const hasImages = !!(imageParts && imageParts.length > 0);
+    const prompt = buildPrompt(instruction, pdfText, questionCount, questionTypes, hasImages);
 
-    const result = await model.generateContent(prompt);
+    const contentParts: (string | ImagePart)[] = [prompt];
+    if (hasImages && imageParts) {
+        contentParts.push(...imageParts);
+    }
+
+    const result = await model.generateContent(contentParts);
     const response = result.response;
     const text = response.text();
     const tokenUsage = response.usageMetadata?.totalTokenCount || 0;

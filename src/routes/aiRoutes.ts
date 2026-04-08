@@ -14,6 +14,10 @@ import {
     updateJobStatus,
     deleteJob,
     finalizeAgenticQuiz,
+    getAgentChatSessions,
+    getAgentChatSession,
+    deleteAgentChatSession,
+    renameAgentChatSession,
 } from '../controllers/aiGenerationController.js';
 
 const router: Router = Router();

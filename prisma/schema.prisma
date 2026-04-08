@@ -33,6 +33,7 @@ model User {
   matchResults      MatchResult[]
   matchParticipants MatchParticipant[]
   aiGenerationJobs  AIGenerationJob[]
+  agentChatSessions AgentChatSession[]
   systemReports     SystemReport[]
 
   classrooms        Classroom[]
@@ -290,6 +291,7 @@ model AIGenerationJob {
   // Input configuration
   instruction  String? // text instruction from user
   pdfUrl       String? // uploaded PDF URL
+  imageUrls    String[] // uploaded image filenames
   targetQuizId Int? // if adding to existing quiz
   targetQuiz   Quiz?   @relation(fields: [targetQuizId], references: [id], onDelete: SetNull)
 
@@ -319,6 +321,35 @@ model AIGenerationJob {
   @@index([userId])
   @@index([status])
   @@index([organizationId])
+}
+
+// AI Agent Chat Models for persistent history
+model AgentChatSession {
+  id    Int     @id @default(autoincrement())
+  title String? @default("Cuộc hội thoại mới")
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages AgentChatMessage[]
+
+  @@index([userId])
+}
+
+model AgentChatMessage {
+  id   Int    @id @default(autoincrement())
+  role String // "user" or "model"
+  text String @db.Text
+
+  sessionId Int
+  session   AgentChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
 }
 
 // AI Generated Question - Individual AI-generated questions pending review

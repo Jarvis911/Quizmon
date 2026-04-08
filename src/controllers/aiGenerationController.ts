@@ -2,14 +2,13 @@ import { Request, Response } from 'express';
 import prisma from '../prismaClient.js';
 import { notificationService } from '../services/notificationService.js';
 import { AIGenerationStatus, AIQuestionStatus, QuestionType, Prisma } from '@prisma/client';
-import { generateQuestions, regenerateQuestion, extractPdfText } from '../services/aiService.js';
+import { generateQuestions, regenerateQuestion, extractPdfText, ImagePart } from '../services/aiService.js';
 import { createQuestion as createQuestionService, QuestionData } from '../services/questionService.js';
 import { trackUsage, checkLimit } from '../services/usageService.js';
 import { FeatureKey } from '@prisma/client';
 
 interface CreateJobBody {
     instruction?: string;
-    pdfUrl?: string;
     targetQuizId?: number;
     questionCount?: number;
     questionTypes?: string; // JSON string array of QuestionType
@@ -25,10 +24,12 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
     try {
         const { instruction, targetQuizId, questionCount, questionTypes } = req.body as CreateJobBody;
         const userId = req.userId;
-        const pdfFile = req.file as Express.Multer.File | undefined;
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+        const pdfFile = files?.pdfFile?.[0];
+        const imageFiles = files?.imageFiles || [];
 
-        if (!instruction && !pdfFile) {
-            res.status(400).json({ message: 'Either instruction or PDF file is required' });
+        if (!instruction && !pdfFile && imageFiles.length === 0) {
+            res.status(400).json({ message: 'Instruction, PDF file, or at least one image is required' });
             return;
         }
 
@@ -55,6 +56,14 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
             }
         }
 
+        // Prepare image parts for Gemini
+        const imageParts: ImagePart[] = imageFiles.map(file => ({
+            inlineData: {
+                data: file.buffer.toString('base64'),
+                mimeType: file.mimetype
+            }
+        }));
+
         // Check plan limits
         const orgId = req.organizationId;
         if (!orgId) {
@@ -80,6 +89,7 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
             data: {
                 instruction: instruction || null,
                 pdfUrl: pdfFile ? pdfFile.originalname : null,
+                imageUrls: imageFiles.map(f => f.originalname),
                 targetQuizId: targetQuizId ? Number(targetQuizId) : null,
                 questionCount: count,
                 userId: Number(userId),
@@ -93,6 +103,7 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
             const generationResult = await generateQuestions(
                 instruction || null,
                 pdfText,
+                imageParts.length > 0 ? imageParts : null,
                 count,
                 types
             );
@@ -658,6 +669,83 @@ export const finalizeAgenticQuiz = async (req: Request, res: Response): Promise<
         res.status(201).json(quiz);
     } catch (err) {
         console.error('[finalizeAgenticQuiz Error]:', err);
+        res.status(500).json(err);
+    }
+};
+
+// Get all chat sessions for user
+export const getAgentChatSessions = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userId = req.userId;
+        const sessions = await prisma.agentChatSession.findMany({
+            where: { userId: Number(userId) },
+            orderBy: { updatedAt: 'desc' },
+        });
+        res.status(200).json(sessions);
+    } catch (err) {
+        console.error('[getAgentChatSessions Error]:', err);
+        res.status(500).json(err);
+    }
+};
+
+// Get single chat session with messages
+export const getAgentChatSession = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+        const session = await prisma.agentChatSession.findFirst({
+            where: { id: Number(id), userId: Number(userId) },
+            include: {
+                messages: { orderBy: { createdAt: 'asc' } }
+            }
+        });
+
+        if (!session) {
+            res.status(404).json({ message: 'Session not found' });
+            return;
+        }
+
+        res.status(200).json(session);
+    } catch (err) {
+        console.error('[getAgentChatSession Error]:', err);
+        res.status(500).json(err);
+    }
+};
+
+// Delete chat session
+export const deleteAgentChatSession = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+        await prisma.agentChatSession.deleteMany({
+            where: { id: Number(id), userId: Number(userId) }
+        });
+        res.status(200).json({ message: 'Session deleted successfully' });
+    } catch (err) {
+        console.error('[deleteAgentChatSession Error]:', err);
+        res.status(500).json(err);
+    }
+};
+
+// Rename chat session
+export const renameAgentChatSession = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const { title } = req.body as { title: string };
+        const userId = req.userId;
+        const session = await prisma.agentChatSession.updateMany({
+            where: { id: Number(id), userId: Number(userId) },
+            data: { title }
+        });
+
+        if (session.count === 0) {
+            res.status(404).json({ message: 'Session not found or not owned by user' });
+            return;
+        }
+
+        res.status(200).json({ message: 'Session renamed successfully' });
+    } catch (err) {
+        console.error('[renameAgentChatSession Error]:', err);
         res.status(500).json(err);
     }
 };
