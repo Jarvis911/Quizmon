@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { uploadBufferToAzure } from '../services/azureBlobService.js';
 import prisma from '../prismaClient.js';
+import { deleteQuizCascade } from '../services/deleteQuizCascade.js';
 import { notificationService } from '../services/notificationService.js';
 
 interface CreateQuizBody {
@@ -319,9 +320,7 @@ export const deleteQuiz = async (req: Request, res: Response): Promise<void> => 
             }
         }
 
-        await prisma.quiz.delete({
-            where: { id: Number(id) },
-        });
+        await deleteQuizCascade(Number(id));
 
         res.status(200).json({ message: 'Quiz deleted successfully' });
     } catch (err) {

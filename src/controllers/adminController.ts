@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../prismaClient.js';
+import { deleteQuizCascade } from '../services/deleteQuizCascade.js';
+import { AI_FEATURES, GEMINI_MODELS } from '../types/ai.js';
 
 export const getDashboardStats = async (req: Request, res: Response) => {
     try {
@@ -69,7 +71,7 @@ export const getQuizzes = async (req: Request, res: Response) => {
 export const deleteQuiz = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
-        await prisma.quiz.delete({ where: { id } });
+        await deleteQuizCascade(id);
         res.json({ message: 'Quiz deleted successfully' });
     } catch (e: any) {
         res.status(500).json({ message: e.message });
@@ -186,10 +188,9 @@ export const updateAIConfig = async (req: Request, res: Response) => {
 
 export const getAIConfigOptions = async (req: Request, res: Response) => {
     try {
-        const { AI_FEATURES, GEMINI_MODELS } = await import('../types/ai.js');
         res.json({
-            features: AI_FEATURES,
-            models: GEMINI_MODELS
+            features: ['QUIZ_GENERATION', 'QUESTION_REGENERATION', 'AGENT_CHAT'],
+            models: ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
         });
     } catch (e: any) {
         res.status(500).json({ message: e.message });

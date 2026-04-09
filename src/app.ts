@@ -25,10 +25,6 @@ import promotionRoutes from './routes/promotionRoutes.js';
 import './services/gateways/index.js';
 import swaggerUi from 'swagger-ui-express';
 import swaggerFile from './utils/swagger-output.json' with { type: 'json' };
-import { updateQuiz } from './controllers/quizController.js';
-import upload from './middleware/uploadMiddleware.js';
-import authMiddleware from './middleware/authMiddleware.js';
-
 
 const app: Express = express();
 
@@ -36,11 +32,9 @@ const app: Express = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Initialize Passport
-app.use(passport.initialize());
-
-// Middleware
+// CORS must run before any other middleware so OPTIONS preflight never hits auth/json parsers.
 app.use(corsMiddleware);
+app.use(passport.initialize());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerFile));

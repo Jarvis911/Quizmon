@@ -24,9 +24,9 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
     try {
         const { instruction, targetQuizId, questionCount, questionTypes } = req.body as CreateJobBody;
         const userId = req.userId;
-        const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
-        const pdfFile = files?.pdfFile?.[0];
-        const imageFiles = files?.imageFiles || [];
+        const multerFiles = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+        const pdfFile = multerFiles?.pdfFile?.[0];
+        const imageFiles = multerFiles?.imageFiles ?? [];
 
         if (!instruction && !pdfFile && imageFiles.length === 0) {
             res.status(400).json({ message: 'Instruction, PDF file, or at least one image is required' });

@@ -1,10 +1,14 @@
 import cors from 'cors';
 import { RequestHandler } from 'express';
 
+// - Omit allowedHeaders so preflight echoes Access-Control-Request-Headers.
+// - origin: true reflects the request Origin (Access-Control-Allow-Origin: <origin> + Vary: Origin).
+//   Some mobile Safari / proxy setups behave better than a bare "*".
 const corsMiddleware: RequestHandler = cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-organization-id'],
+    origin: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    maxAge: 86400,
+    optionsSuccessStatus: 204,
 });
 
 export default corsMiddleware;

@@ -5,7 +5,7 @@
     "description": "REST API documentation for the Quizmon quiz platform. Supports quiz creation, match hosting, AI-powered question generation, and real-time gameplay via Socket.IO.",
     "version": "1.0.0"
   },
-  "host": "localhost:3000",
+  "host": "",
   "basePath": "/",
   "schemes": [
     "http"

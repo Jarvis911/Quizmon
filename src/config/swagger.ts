@@ -1,4 +1,5 @@
 import swaggerJsdoc from 'swagger-jsdoc';
+import { BACKEND_URL } from './index.js';
 
 const options: swaggerJsdoc.Options = {
     definition: {
@@ -10,7 +11,7 @@ const options: swaggerJsdoc.Options = {
         },
         servers: [
             {
-                url: process.env.BACKEND_URL || 'http://localhost:3000',
+                url: BACKEND_URL,
                 description: 'Local server',
             },
         ],

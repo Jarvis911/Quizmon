@@ -5,7 +5,7 @@ import { initializeSocket } from './socket/index.js';
 // docker compose run app npx prisma migrate dev --name init
 // node swagger.js
 
-const PORT = process.env.PORT || 3000;
+import { PORT } from './config/index.js';
 const server = http.createServer(app);
 
 // Initialize Socket.IO with modular handlers

@@ -3,6 +3,7 @@ import prisma from '../prismaClient.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import passport from '../config/passport.js';
+import { FRONTEND_URL } from '../config/index.js';
 
 import { createOrganization } from '../services/organizationService.js';
 
@@ -73,8 +74,7 @@ export const googleLogin = (req: Request, res: Response): void => {
 export const googleCallback = (req: Request, res: Response): void => {
     passport.authenticate('google', { session: false }, (err: Error | null, user: Express.User | false) => {
         if (err || !user) {
-            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-            return res.redirect(`${frontendUrl}/login?error=Google auth failed`);
+            return res.redirect(`${FRONTEND_URL}/login?error=Google auth failed`);
         }
 
         const typedUser = user as { id: number; username: string; email: string };
@@ -89,7 +89,6 @@ export const googleCallback = (req: Request, res: Response): void => {
             username: typedUser.username,
             email: typedUser.email
         }));
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-        res.redirect(`${frontendUrl}/login?token=${token}&user=${userData}`);
+        res.redirect(`${FRONTEND_URL}/login?token=${token}&user=${userData}`);
     })(req, res);
 };

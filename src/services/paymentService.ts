@@ -1,6 +1,7 @@
 import prisma from '../prismaClient.js';
 import { BillingCycle, SubscriptionStatus, PaymentStatus, PaymentMethod } from '@prisma/client';
 import { getGateway, getAvailableGateways } from './gateways/paymentGateway.js';
+import { FRONTEND_URL, BACKEND_URL } from '../config/index.js';
 
 // Re-export for convenience
 export { getAvailableGateways };
@@ -48,12 +49,8 @@ export const createCheckoutSession = async (
         ? Math.round(amount) // VND is already whole numbers
         : Math.round(amount * 100); // USD → cents for Stripe
 
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-
-    // Encode plan info in redirectUrl so BillingSuccess can call fulfill
-    const redirectUrl = `${baseUrl}/billing/success?orderId=${orderId}&plan_id=${planId}&billing_cycle=${billingCycle}&payment_method=${paymentMethod}`;
-    const ipnUrl = `${backendUrl}/subscriptions/momo-ipn`;
+    const redirectUrl = `${FRONTEND_URL}/billing/success?orderId=${orderId}&plan_id=${planId}&billing_cycle=${billingCycle}&payment_method=${paymentMethod}`;
+    const ipnUrl = `${BACKEND_URL}/subscriptions/momo-ipn`;
 
     // Get the gateway and create the payment
     const gateway = getGateway(paymentMethod);

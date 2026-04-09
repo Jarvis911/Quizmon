@@ -2,7 +2,10 @@ import { Server, Socket } from 'socket.io';
 import http from 'http';
 import { createClient, RedisClientType } from 'redis';
 import { createAdapter } from '@socket.io/redis-adapter';
+import jwt from 'jsonwebtoken';
 import { CustomSocket } from './types.js';
+import { JwtPayload } from '../types/index.js';
+import { REDIS_URL } from '../config/index.js';
 import {
     handleJoinMatch,
     handleStartMatch,
@@ -33,8 +36,7 @@ export async function initializeSocket(server: http.Server): Promise<Server> {
         },
     });
 
-    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    redisClient = createClient({ url: redisUrl }) as RedisClientType;
+    redisClient = createClient({ url: REDIS_URL }) as RedisClientType;
     const subClient = redisClient.duplicate();
 
     try {
@@ -44,6 +46,31 @@ export async function initializeSocket(server: http.Server): Promise<Server> {
     } catch (err) {
         console.error('Failed to connect to Redis:', err);
     }
+
+    // Authentication Middleware
+    io.use((socket, next) => {
+        let token = socket.handshake.auth?.token;
+        
+        if (token) {
+            // Strip "Bearer " prefix if present
+            if (token.startsWith('Bearer ')) {
+                token = token.slice(7);
+            }
+
+            try {
+                const secret = process.env.JWT_SECRET as string;
+                const decoded = jwt.verify(token, secret) as JwtPayload;
+                (socket as CustomSocket).userId = decoded.id;
+                console.log(`Socket ${socket.id} authenticated for user ${decoded.id}`);
+            } catch (err) {
+                console.warn(`Socket ${socket.id} authentication failed:`, (err as Error).message);
+                // We don't call next(err) here because we want to allow the connection
+                // anyway, but individual handlers will check for userId if needed.
+            }
+        }
+        
+        next();
+    });
 
     io.on('connection', (socket: Socket) => {
         const customSocket = socket as CustomSocket;

@@ -10,6 +10,13 @@ export async function startQuestionTimer(io: Server, matchId: string | number): 
     const matchState = await getMatch(matchId);
     if (!matchState) return;
 
+    // Clear any existing interval for this match to prevent leaks/double timers
+    const existingInterval = matchIntervals.get(String(matchId));
+    if (existingInterval) {
+        clearInterval(existingInterval);
+        matchIntervals.delete(String(matchId));
+    }
+
     matchState.remainingTime = QUESTION_TIME_LIMIT;
     await saveMatch(matchId, matchState);
 

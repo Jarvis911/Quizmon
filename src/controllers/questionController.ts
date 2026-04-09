@@ -14,6 +14,20 @@ interface VideoInput {
     duration?: number;
 }
 
+/** multipart/form-data sends `options` as a JSON string; `application/json` sends an array. */
+function parseQuestionOptionsFromBody(options: unknown): QuestionData['options'] {
+    if (options == null) {
+        throw new Error('Missing options');
+    }
+    if (Array.isArray(options)) {
+        return options as QuestionData['options'];
+    }
+    if (typeof options === 'string') {
+        return JSON.parse(options) as QuestionData['options'];
+    }
+    throw new Error('options must be a JSON string or array');
+}
+
 // Get retrieve question
 export const getRetrieveQuestion = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
@@ -64,7 +78,7 @@ export const createButtonQuestion = async (req: Request, res: Response): Promise
             text,
             type: 'BUTTONS' as QuestionType,
             media: questionMedia,
-            options: JSON.parse(options),
+            options: parseQuestionOptionsFromBody(options),
         };
 
         const newQuestion = await createQuestionService(questionData);
@@ -103,7 +117,7 @@ export const updateButtonQuestion = async (req: Request, res: Response): Promise
             text,
             type: 'BUTTONS' as QuestionType,
             media: questionMedia,
-            options: JSON.parse(options),
+            options: parseQuestionOptionsFromBody(options),
         };
 
         const updatedQuestion = await updateQuestionService(Number(id), questionData);
@@ -142,7 +156,7 @@ export const createCheckboxQuestion = async (req: Request, res: Response): Promi
             text,
             type: 'CHECKBOXES' as QuestionType,
             media: questionMedia,
-            options: JSON.parse(options),
+            options: parseQuestionOptionsFromBody(options),
         };
 
         const newQuestion = await createQuestionService(questionData);
@@ -181,7 +195,7 @@ export const updateCheckboxQuestion = async (req: Request, res: Response): Promi
             text,
             type: 'CHECKBOXES' as QuestionType,
             media: questionMedia,
-            options: JSON.parse(options),
+            options: parseQuestionOptionsFromBody(options),
         };
 
         const updatedQuestion = await updateQuestionService(Number(id), questionData);
@@ -221,7 +235,7 @@ export const createReorderQuestion = async (req: Request, res: Response): Promis
             text,
             type: 'REORDER' as QuestionType,
             media: questionMedia,
-            options: JSON.parse(options),
+            options: parseQuestionOptionsFromBody(options),
         };
 
         const newQuestion = await createQuestionService(questionData);
@@ -260,7 +274,7 @@ export const updateReorderQuestion = async (req: Request, res: Response): Promis
             text,
             type: 'REORDER' as QuestionType,
             media: questionMedia,
-            options: JSON.parse(options),
+            options: parseQuestionOptionsFromBody(options),
         };
 
         const updatedQuestion = await updateQuestionService(Number(id), questionData);
@@ -478,8 +492,11 @@ export const deleteQuestion = async (req: Request, res: Response): Promise<void>
             }
         }
 
-        await prisma.question.delete({
-            where: { id: Number(id) },
+        await prisma.$transaction(async (tx) => {
+            const qid = Number(id);
+            await tx.questionOption.deleteMany({ where: { questionId: qid } });
+            await tx.questionMedia.deleteMany({ where: { questionId: qid } });
+            await tx.question.delete({ where: { id: qid } });
         });
 
         res.status(200).json({ message: 'Question deleted successfully' });

@@ -101,7 +101,7 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
                 console.log(`Player ${userId} reconnected to started match ${matchId}!`);
 
                 // Send event specifically to the reconnecting player to jump into the game
-                socket.emit('gameStarted');
+                socket.emit('gameStarted', { isPaused: matchState.isPaused });
                 
                 // Notify others visually or internally if needed
                 io.to(String(matchId)).emit('playerJoined', matchState.players);

@@ -5,6 +5,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import bcrypt from 'bcryptjs';
 import prisma from '../prismaClient.js';
 import { JwtPayload } from '../types/index.js';
+import { BACKEND_URL } from './index.js';
 
 const jwtOptions: StrategyOptions = {
     jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -74,7 +75,7 @@ passport.use(
         {
             clientID: process.env.GOOGLE_CLIENT_ID as string,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-            callbackURL: (process.env.BACKEND_URL || 'http://localhost:3000') + '/auth/google/callback',
+            callbackURL: BACKEND_URL + '/auth/google/callback',
         },
         async (accessToken, refreshToken, profile, done) => {
             try {
