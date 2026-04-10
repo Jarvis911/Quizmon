@@ -1,6 +1,7 @@
 import { Server } from 'socket.io';
 import { CustomSocket } from '../types.js';
-import { getMatch, saveMatch } from '../matchStore.js';
+import { getMatch, updateMatchState } from '../matchStore.js';
+import { MatchState } from '../types.js';
 
 export function handleTogglePause(io: Server, socket: CustomSocket) {
     return async ({ matchId: rawMatchId }: { matchId: string | number }) => {
@@ -19,12 +20,16 @@ export function handleTogglePause(io: Server, socket: CustomSocket) {
             return socket.emit('error', 'Can only pause a started match');
         }
 
-        matchState.isPaused = !matchState.isPaused;
-        await saveMatch(matchId, matchState);
+        const updatedState = await updateMatchState(matchId, (state: MatchState) => {
+            state.isPaused = !state.isPaused;
+            return state;
+        });
 
-        console.log(`Match ${matchId} pause status: ${matchState.isPaused}`);
+        if (!updatedState) return;
+
+        console.log(`Match ${matchId} pause status: ${updatedState.isPaused}`);
 
         // Notify all players in the match
-        io.to(String(matchId)).emit('pauseStatusUpdated', { isPaused: matchState.isPaused });
+        io.to(String(matchId)).emit('pauseStatusUpdated', { isPaused: updatedState.isPaused });
     };
 }

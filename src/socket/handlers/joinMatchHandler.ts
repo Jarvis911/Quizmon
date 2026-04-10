@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import prisma from '../../prismaClient.js';
 import { CustomSocket, JoinMatchPayload, Question } from '../types.js';
-import { MAX_PLAYER_PER_MATCH, MAX_ACTIVE_MATCHES } from '../constants.js';
+import { MAX_PLAYER_PER_MATCH, MAX_ACTIVE_MATCHES, QUESTION_TIME_LIMIT } from '../constants.js';
 import {
     getMatch,
     hasMatch,
@@ -72,6 +72,7 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
                 currentQuestionIndex: 0,
                 questions: match.quiz.questions as Question[],
                 remainingTime: 0,
+                timePerQuestion: match.timePerQuestion ?? QUESTION_TIME_LIMIT,
                 isPaused: false,
                 startTime: null,
                 endTime: null,

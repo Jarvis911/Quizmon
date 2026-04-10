@@ -75,8 +75,7 @@ export async function sendNextQuestion(io: Server, matchId: string | number): Pr
     };
     
     // Reset timer before sending to ensure frontend gets correct max duration
-    const { QUESTION_TIME_LIMIT } = await import('../constants.js');
-    matchState.remainingTime = QUESTION_TIME_LIMIT;
+    matchState.remainingTime = matchState.timePerQuestion;
     await saveMatch(matchId, matchState);
 
     io.to(String(matchId)).emit('nextQuestion', { 

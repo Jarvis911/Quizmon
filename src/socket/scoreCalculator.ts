@@ -1,6 +1,6 @@
 import haversine from 'haversine-distance';
 import { AnswerType, Question } from './types.js';
-import { QUESTION_TIME_LIMIT, LOCATION_RADIUS_1000, LOCATION_RADIUS_750, LOCATION_RADIUS_500 } from './constants.js';
+import { LOCATION_RADIUS_1000, LOCATION_RADIUS_750, LOCATION_RADIUS_500 } from './constants.js';
 
 interface ScoreResult {
     isCorrect: boolean;
@@ -93,6 +93,8 @@ export function checkAnswer(question: Question, answer: AnswerType | undefined):
  * Calculate points based on remaining time.
  * Faster answers get more points (max 1000).
  */
-export function calculatePoints(submitRemainingTime: number): number {
-    return +(1000 * (submitRemainingTime / QUESTION_TIME_LIMIT)).toFixed(1);
+export function calculatePoints(submitRemainingTime: number, timePerQuestion: number): number {
+    const timeLimit = timePerQuestion || 30; // Safety fallback
+    const points = Math.floor(1000 * (submitRemainingTime / timeLimit));
+    return Math.max(0, Math.min(1000, points));
 }

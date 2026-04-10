@@ -12,6 +12,30 @@ const MATCHES_SET_KEY = 'active_matches';
 export const matchIntervals = new Map<string, ReturnType<typeof setInterval>>();
 
 /**
+ * Per-match async mutex.
+ * Serializes concurrent operations on the same match to prevent
+ * "Read-Modify-Write" race conditions (e.g. two players submitting simultaneously).
+ */
+const matchLocks = new Map<string, Promise<any>>();
+
+export async function withMatchLock<T>(
+    matchId: string | number,
+    fn: () => Promise<T>
+): Promise<T> {
+    const key = String(matchId);
+    // Chain the new operation after the previous one finishes
+    const chain = (matchLocks.get(key) ?? Promise.resolve())
+        .then(() => fn())
+        .finally(() => {
+            if (matchLocks.get(key) === chain) {
+                matchLocks.delete(key);
+            }
+        });
+    matchLocks.set(key, chain);
+    return chain;
+}
+
+/**
  * Custom JSON Replacer for Map, Set, and Date serialization
  */
 function replacer(key: string, value: any) {
@@ -66,6 +90,22 @@ export async function saveMatch(matchId: string | number, matchState: MatchState
     const serialized = JSON.stringify(matchState, replacer);
     await redisClient.set(MATCH_PREFIX + matchId, serialized);
     await redisClient.sAdd(MATCHES_SET_KEY, String(matchId));
+}
+
+/**
+ * Perform an atomic update on a match state.
+ * This is a helper to prevent "Read-Modify-Write" race conditions.
+ */
+export async function updateMatchState(
+    matchId: string | number, 
+    updateFn: (state: MatchState) => MatchState | Promise<MatchState>
+): Promise<MatchState | undefined> {
+    const matchState = await getMatch(matchId);
+    if (!matchState) return undefined;
+    
+    const updatedState = await updateFn(matchState);
+    await saveMatch(matchId, updatedState);
+    return updatedState;
 }
 
 /**

@@ -17,13 +17,16 @@ export async function startQuestionTimer(io: Server, matchId: string | number): 
         matchIntervals.delete(String(matchId));
     }
 
-    matchState.remainingTime = QUESTION_TIME_LIMIT;
+    matchState.remainingTime = matchState.timePerQuestion;
     await saveMatch(matchId, matchState);
 
     io.to(String(matchId)).emit('timeUpdate', matchState.remainingTime);
 
+    let localRemainingTime = matchState.timePerQuestion;
+    let tickCount = 0;
+    
     const intervalId = setInterval(async () => {
-        // Fetch fresh state inside interval
+        // Fetch fresh state inside interval to check for external updates (like isPaused)
         const currentMatchState = await getMatch(matchId);
         if (!currentMatchState) {
             clearInterval(intervalId);
@@ -31,17 +34,28 @@ export async function startQuestionTimer(io: Server, matchId: string | number): 
             return;
         }
 
-        // Skip timer update if paused
+        // Handle pause: if paused, we sync our local timer to Redis to be safe
         if (currentMatchState.isPaused) {
+            currentMatchState.remainingTime = localRemainingTime;
+            await saveMatch(matchId, currentMatchState);
             return;
         }
 
-        currentMatchState.remainingTime = Math.max(0, currentMatchState.remainingTime - 0.1);
-        await saveMatch(matchId, currentMatchState);
+        // Decrement local timer
+        localRemainingTime = Math.max(0, localRemainingTime - 0.1);
+        tickCount++;
 
-        io.to(String(matchId)).emit('timeUpdate', Number(currentMatchState.remainingTime.toFixed(1)));
+        // Broadcast the local (accurate) time to clients
+        io.to(String(matchId)).emit('timeUpdate', Number(localRemainingTime.toFixed(1)));
 
-        if (currentMatchState.remainingTime <= 0) {
+        // Sync local time back to Redis every 1s (10 ticks) or when time is up
+        if (tickCount >= 10 || localRemainingTime <= 0) {
+            tickCount = 0;
+            currentMatchState.remainingTime = localRemainingTime;
+            await saveMatch(matchId, currentMatchState);
+        }
+
+        if (localRemainingTime <= 0) {
             clearInterval(intervalId);
             matchIntervals.delete(String(matchId));
             await processTimeUp(io, matchId);
@@ -135,7 +149,7 @@ export async function processTimeUp(io: Server, matchId: string | number): Promi
 
         // Award points if correct
         if (result.isCorrect) {
-            player.score += calculatePoints(submitRemainingTime);
+            player.score += calculatePoints(submitRemainingTime, matchState.timePerQuestion);
         }
 
         // Emit result (with correct answer info)

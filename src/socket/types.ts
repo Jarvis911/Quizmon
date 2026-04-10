@@ -18,6 +18,7 @@ export interface MatchState {
     currentQuestionIndex: number;
     questions: Question[];
     remainingTime: number;
+    timePerQuestion: number;
     isPaused: boolean;
     startTime: Date | null;
     endTime: Date | null;

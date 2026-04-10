@@ -4,6 +4,7 @@ import prisma from '../prismaClient.js';
 import { AIFeature } from '../types/ai.js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const GEMINI_PROXY_URL = process.env.GEMINI_PROXY_URL || 'https://falling-lab-bea2.triho753.workers.dev';
 
 export async function getModelForFeature(featureName: AIFeature | string, defaultModel = 'gemini-2.5-flash'): Promise<string> {
     try {
@@ -123,7 +124,10 @@ export async function generateQuestions(
     questionTypes: QuestionType[]
 ): Promise<AIGenerationResponse> {
     const modelName = await getModelForFeature('QUIZ_GENERATION');
-    const model = genAI.getGenerativeModel({ model: modelName });
+    const model = genAI.getGenerativeModel(
+        { model: modelName },
+        { baseUrl: GEMINI_PROXY_URL }
+    );
 
     const hasImages = !!(imageParts && imageParts.length > 0);
     const prompt = buildPrompt(instruction, pdfText, questionCount, questionTypes, hasImages);
@@ -166,7 +170,10 @@ export async function regenerateQuestion(
     instruction: string | null
 ): Promise<GeneratedQuestionData> {
     const modelName = await getModelForFeature('QUESTION_REGENERATION');
-    const model = genAI.getGenerativeModel({ model: modelName });
+    const model = genAI.getGenerativeModel(
+        { model: modelName },
+        { baseUrl: GEMINI_PROXY_URL }
+    );
 
     const typeDesc = QUESTION_TYPE_DESCRIPTIONS[originalQuestion.questionType] || originalQuestion.questionType;
 
@@ -223,7 +230,10 @@ export async function processAgentChat(
     message: string
 ): Promise<AIGenerationResponse> {
     const modelName = await getModelForFeature('AGENT_CHAT');
-    const model = genAI.getGenerativeModel({ model: modelName });
+    const model = genAI.getGenerativeModel(
+        { model: modelName },
+        { baseUrl: GEMINI_PROXY_URL }
+    );
     const chat = model.startChat({
         history: history,
         generationConfig: {

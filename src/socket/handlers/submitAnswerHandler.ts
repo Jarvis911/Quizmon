@@ -1,67 +1,91 @@
 import { Server } from 'socket.io';
 import { CustomSocket, SubmitAnswerPayload } from '../types.js';
-import { getMatch, saveMatch } from '../matchStore.js';
+import { getMatch, saveMatch, withMatchLock } from '../matchStore.js';
 import { validateAnswer } from '../answerValidator.js';
 import { processTimeUp } from '../gameTimer.js';
 
 export function handleSubmitAnswer(io: Server, socket: CustomSocket) {
     return async ({ matchId: rawMatchId, userId, questionId, answer }: SubmitAnswerPayload) => {
         const matchId = String(rawMatchId); // Normalize to string
-        const matchState = await getMatch(matchId);
 
-        if (!matchState || matchState.state !== 'started') {
-            return socket.emit('error', 'Trận đấu chưa bắt đầu hoặc đã kết thúc');
-        }
+        // Use withMatchLock to serialize concurrent submissions for the same match.
+        // This prevents the "Lost Update" race condition where two players submitting
+        // simultaneously overwrite each other's answer in Redis.
+        let allSubmitted = false;
+        let emitError: string | null = null;
 
-        // Validate user is in match
-        const player = matchState.players.find((p) => p.userId === userId);
-        if (!player) {
-            return socket.emit('error', 'Bạn không ở trong trận đấu này');
-        }
+        await withMatchLock(matchId, async () => {
+            // Re-read the FRESH state inside the lock — this is the authoritative read.
+            const matchState = await getMatch(matchId);
 
-        const currentQuestion = matchState.questions[matchState.currentQuestionIndex];
-        if (!currentQuestion || currentQuestion.id !== questionId) {
-            return socket.emit('error', 'Câu hỏi không hợp lệ');
-        }
+            if (!matchState || matchState.state !== 'started') {
+                emitError = 'Trận đấu chưa bắt đầu hoặc đã kết thúc';
+                return;
+            }
 
-        // Check if already submitted
-        if (player.submitted.has(questionId)) {
-            return socket.emit('error', 'Bạn đã trả lời câu hỏi này');
-        }
+            // Validate user is in match
+            const player = matchState.players.find((p) => p.userId === userId);
+            if (!player) {
+                emitError = 'Bạn không ở trong trận đấu này';
+                return;
+            }
 
-        // Check if time remaining > 0
-        if (matchState.remainingTime <= 0) {
-            return socket.emit('error', 'Đã hết thời gian trả lời');
-        }
+            const currentQuestion = matchState.questions[matchState.currentQuestionIndex];
+            if (!currentQuestion || currentQuestion.id !== questionId) {
+                emitError = 'Câu hỏi không hợp lệ';
+                return;
+            }
 
-        // Validate answer format
-        const validation = validateAnswer(currentQuestion, answer);
-        if (!validation.isValid) {
-            return socket.emit('error', validation.error || 'Định dạng câu trả lời không hợp lệ');
-        }
+            // Check if already submitted
+            if (player.submitted.has(questionId)) {
+                emitError = 'Bạn đã trả lời câu hỏi này';
+                return;
+            }
 
-        // Store the answer
-        if (!matchState.answers.has(questionId)) {
-            matchState.answers.set(questionId, new Map());
-        }
+            // Check if time remaining > 0
+            if (matchState.remainingTime <= 0) {
+                emitError = 'Đã hết thời gian trả lời';
+                return;
+            }
 
-        matchState.answers.get(questionId)!.set(userId, {
-            answer: answer,
-            submitRemainingTime: matchState.remainingTime,
+            // Validate answer format
+            const answerValidation = validateAnswer(currentQuestion, answer);
+            if (!answerValidation.isValid) {
+                emitError = answerValidation.error || 'Định dạng câu trả lời không hợp lệ';
+                return;
+            }
+
+            // Store the answer
+            if (!matchState.answers.has(questionId)) {
+                matchState.answers.set(questionId, new Map());
+            }
+
+            matchState.answers.get(questionId)!.set(userId, {
+                answer: answer,
+                submitRemainingTime: matchState.remainingTime,
+            });
+
+            player.submitted.add(questionId);
+
+            // Save once — atomically within this lock
+            await saveMatch(matchId, matchState);
+
+            // Check if ALL players have now submitted
+            allSubmitted = matchState.players.every((p) => p.submitted.has(questionId));
         });
 
-        player.submitted.add(questionId);
+        if (emitError) {
+            return socket.emit('error', emitError);
+        }
 
-        await saveMatch(matchId, matchState);
-
-        // Emit confirmation to user
+        // Emit confirmation to user (outside the lock — no write needed)
         socket.emit('answerSubmitted', { questionId });
 
-        // Check if all players submitted, if yes, early timeUp
-        const allSubmitted = matchState.players.every((p) => p.submitted.has(questionId));
+        // If everyone answered, trigger early time-up (outside the lock to avoid deadlock)
         if (allSubmitted) {
             console.log(`All players submitted for question ${questionId}. Processing time up.`);
             await processTimeUp(io, matchId);
         }
     };
 }
+
