@@ -12,7 +12,7 @@ interface CreateQuizBody {
 }
 
 export const createQuiz = async (req: Request, res: Response): Promise<void> => {
-    const { title, description, isPublic, categoryId } = req.body as CreateQuizBody;
+    const { title, description, isPublic, categoryId, imageUrl: directImageUrl } = req.body as CreateQuizBody & { imageUrl?: string };
     const imageFile = req.file;
     let imageUrl: string | null = null;
     const creatorId = req.userId;
@@ -20,6 +20,8 @@ export const createQuiz = async (req: Request, res: Response): Promise<void> => 
     try {
         if (imageFile) {
             imageUrl = await uploadBufferToAzure(imageFile.buffer, imageFile.originalname, imageFile.mimetype);
+        } else if (typeof directImageUrl === 'string' && directImageUrl.startsWith('http')) {
+            imageUrl = directImageUrl;
         }
 
         const data = await prisma.quiz.create({
@@ -145,7 +147,7 @@ export const getRetrieveQuiz = async (req: Request, res: Response): Promise<void
 
 export const updateQuiz = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    const { title, description, isPublic, categoryId, removeImage } = req.body;
+    const { title, description, isPublic, categoryId, removeImage, imageUrl: directImageUrl } = req.body;
     const imageFile = req.file;
     const userId = Number(req.userId);
 
@@ -175,6 +177,9 @@ export const updateQuiz = async (req: Request, res: Response): Promise<void> => 
         let imageUrl: string | null | undefined = undefined;
         if (imageFile) {
             imageUrl = await uploadBufferToAzure(imageFile.buffer, imageFile.originalname, imageFile.mimetype);
+        } else if (typeof directImageUrl === 'string' && directImageUrl.startsWith('http')) {
+            // Direct URL (e.g. AI-generated image already on Azure)
+            imageUrl = directImageUrl;
         } else if (removeImage === 'true' || removeImage === true) {
             imageUrl = null;
         }
@@ -310,7 +315,6 @@ export const deleteQuiz = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
-        // Ownership or Org check
         if (quiz.creatorId !== userId) {
             if (req.organizationId && quiz.organizationId === req.organizationId) {
                 // Allow deletion if in same org
@@ -327,6 +331,209 @@ export const deleteQuiz = async (req: Request, res: Response): Promise<void> => 
         const error = err as Error;
         console.error('Delete Quiz Error:', error);
         res.status(500).json({ message: error.message });
+    }
+};
+
+// Get quizzes belonging to the current organization (from all members)
+export const getOrgQuizzes = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const orgId = req.organizationId;
+        if (!orgId) {
+            res.status(400).json({ message: 'Organization context required' });
+            return;
+        }
+
+        const data = await prisma.quiz.findMany({
+            where: { organizationId: orgId },
+            orderBy: { updatedAt: 'desc' },
+            include: {
+                creator: { select: { id: true, username: true } },
+                category: { select: { id: true, name: true } },
+                _count: { select: { questions: true } }
+            },
+        });
+
+        res.status(200).json(data);
+    } catch (err) {
+        const error = err as Error;
+        res.status(400).json({ message: error.message });
+    }
+};
+
+// Replicate a public quiz into the current user's personal library
+export const replicateQuiz = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const userId = Number(req.userId);
+
+    try {
+        const original = await prisma.quiz.findUnique({
+            where: { id: Number(id) },
+            include: {
+                questions: {
+                    include: { options: true, media: true }
+                },
+                category: true
+            }
+        });
+
+        if (!original) {
+            res.status(404).json({ message: 'Quiz not found' });
+            return;
+        }
+
+        if (!original.isPublic && original.creatorId !== userId) {
+            res.status(403).json({ message: 'Quiz này không công khai.' });
+            return;
+        }
+
+        const newQuiz = await prisma.quiz.create({
+            data: {
+                title: `${original.title} (bản sao)`,
+                description: original.description,
+                image: original.image,
+                isPublic: false,
+                creatorId: userId,
+                categoryId: original.categoryId,
+                organizationId: null, // Goes into personal library by default
+                questions: {
+                    create: original.questions.map(q => ({
+                        text: q.text,
+                        type: q.type,
+                        data: q.data ?? undefined,
+                        options: {
+                            create: q.options.map(o => ({
+                                text: o.text,
+                                isCorrect: o.isCorrect,
+                                order: o.order
+                            }))
+                        }
+                    }))
+                }
+            },
+            include: {
+                creator: { select: { id: true, username: true } },
+                category: { select: { id: true, name: true } }
+            }
+        });
+
+        await notificationService.createNotification(
+            userId,
+            `Đã sao chép quiz "${original.title}" vào thư viện của bạn.`,
+            'QUIZ_REPLICATED',
+            `/library`
+        );
+
+        res.status(201).json(newQuiz);
+    } catch (err) {
+        const error = err as Error;
+        console.error('Replicate Quiz Error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Assign a quiz to the current organization
+export const assignQuizToOrg = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const userId = Number(req.userId);
+    const orgId = req.organizationId;
+
+    try {
+        if (!orgId) {
+            res.status(400).json({ message: 'Organization context required' });
+            return;
+        }
+
+        const quiz = await prisma.quiz.findUnique({
+            where: { id: Number(id) },
+            select: { creatorId: true, organizationId: true, title: true }
+        });
+
+        if (!quiz) {
+            res.status(404).json({ message: 'Quiz not found' });
+            return;
+        }
+
+        if (quiz.creatorId !== userId) {
+            res.status(403).json({ message: 'Chỉ tác giả mới có thể đưa quiz vào tổ chức.' });
+            return;
+        }
+
+        const updated = await prisma.quiz.update({
+            where: { id: Number(id) },
+            data: { organizationId: orgId },
+            include: {
+                creator: { select: { id: true, username: true } },
+                category: { select: { id: true, name: true } }
+            }
+        });
+
+        res.status(200).json(updated);
+    } catch (err) {
+        const error = err as Error;
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Remove a quiz from organization (back to personal)
+export const removeQuizFromOrg = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const userId = Number(req.userId);
+
+    try {
+        const quiz = await prisma.quiz.findUnique({
+            where: { id: Number(id) },
+            select: { creatorId: true, organizationId: true, title: true }
+        });
+
+        if (!quiz) {
+            res.status(404).json({ message: 'Quiz not found' });
+            return;
+        }
+
+        if (quiz.creatorId !== userId) {
+            res.status(403).json({ message: 'Chỉ tác giả mới có thể rút quiz khỏi tổ chức.' });
+            return;
+        }
+
+        const updated = await prisma.quiz.update({
+            where: { id: Number(id) },
+            data: { organizationId: null },
+            include: {
+                creator: { select: { id: true, username: true } },
+                category: { select: { id: true, name: true } }
+            }
+        });
+
+        res.status(200).json(updated);
+    } catch (err) {
+        const error = err as Error;
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get quizzes from org that can be assigned as homework (for teachers)
+export const getAssignableQuizzes = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const orgId = req.organizationId;
+        if (!orgId) {
+            res.status(400).json({ message: 'Organization context required' });
+            return;
+        }
+
+        const data = await prisma.quiz.findMany({
+            where: { organizationId: orgId },
+            orderBy: { updatedAt: 'desc' },
+            include: {
+                creator: { select: { id: true, username: true } },
+                category: { select: { id: true, name: true } },
+                _count: { select: { questions: true } }
+            }
+        });
+
+        res.status(200).json(data);
+    } catch (err) {
+        const error = err as Error;
+        res.status(400).json({ message: error.message });
     }
 };
 

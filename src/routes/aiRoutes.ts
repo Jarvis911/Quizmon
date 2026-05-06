@@ -19,6 +19,7 @@ import {
     deleteAgentChatSession,
     renameAgentChatSession,
 } from '../controllers/aiGenerationController.js';
+import { generateImage } from '../controllers/aiImageController.js';
 
 const router: Router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -44,6 +45,9 @@ router.delete('/jobs/:id/questions/:questionId', authMiddleware, orgMiddleware, 
 
 // Approve all and create quiz
 router.post('/jobs/:id/approve-all', authMiddleware, orgMiddleware, approveAllAndCreateQuiz);
+
+// On-demand AI image generation
+router.post('/generate-image', authMiddleware, orgMiddleware, generateImage);
 
 // Agentic Workspace routes
 router.post('/agentic/save', authMiddleware, orgMiddleware, finalizeAgenticQuiz);

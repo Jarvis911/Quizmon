@@ -19,11 +19,9 @@ jest.unstable_mockModule('../middleware/authMiddleware.js', () => ({
     },
 }));
 
-jest.unstable_mockModule('../utils/cloudinary.js', () => ({
+jest.unstable_mockModule('../services/azureBlobService.js', () => ({
     __esModule: true,
-    default: {
-        uploader: { upload_stream: jest.fn() },
-    },
+    uploadBufferToAzure: (jest.fn() as any).mockResolvedValue('http://example.com/image.jpg'),
 }));
 
 const { default: request } = await import('supertest');

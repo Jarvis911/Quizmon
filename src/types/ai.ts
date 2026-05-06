@@ -1,7 +1,8 @@
 export const AI_FEATURES = [
     'QUIZ_GENERATION',
     'QUESTION_REGENERATION',
-    'AGENT_CHAT'
+    'AGENT_CHAT',
+    'STUDENT_LIST_OCR'
 ] as const;
 
 export type AIFeature = (typeof AI_FEATURES)[number];

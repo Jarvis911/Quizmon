@@ -189,8 +189,16 @@ export const updateAIConfig = async (req: Request, res: Response) => {
 export const getAIConfigOptions = async (req: Request, res: Response) => {
     try {
         res.json({
-            features: ['QUIZ_GENERATION', 'QUESTION_REGENERATION', 'AGENT_CHAT'],
-            models: ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
+            features: ['QUIZ_GENERATION', 'QUESTION_REGENERATION', 'AGENT_CHAT', 'IMAGE_GENERATION', 'STUDENT_LIST_OCR'],
+            models: [
+                'gemini-2.5-flash',
+                'gemini-2.5-flash-lite',
+                'gemini-2.0-flash',
+                'gemini-2.0-flash-lite',
+                'gemini-2.0-flash-preview-image-generation',
+                'gemini-1.5-flash',
+                'gemini-1.5-pro',
+            ],
         });
     } catch (e: any) {
         res.status(500).json({ message: e.message });

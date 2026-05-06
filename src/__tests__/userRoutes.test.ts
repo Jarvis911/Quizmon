@@ -48,9 +48,10 @@ describe('User Routes', () => {
                 { matchId: 1, userId: 2, score: 80 }
             ];
 
+            prismaMock.matchResult.count.mockResolvedValueOnce(1 as any);
             prismaMock.matchResult.findMany
-                .mockResolvedValueOnce(mockResults as any) // first call
-                .mockResolvedValueOnce(mockAllResults as any); // second call
+                .mockResolvedValueOnce(mockResults as any) // paged results
+                .mockResolvedValueOnce(mockAllResults as any); // all results in those matches (for rank)
 
             const response = await request(app).get('/user/statistics');
 
@@ -58,15 +59,18 @@ describe('User Routes', () => {
             expect(response.body.totalMatches).toBe(1);
             expect(response.body.winRate).toBe(1); // Rank 1 out of 1 match
             expect(response.body.rankCounts[1]).toBe(1);
+            expect(response.body.pagination.total).toBe(1);
         });
 
         it('should return empty statistics if no results', async () => {
+            prismaMock.matchResult.count.mockResolvedValueOnce(0 as any);
             prismaMock.matchResult.findMany.mockResolvedValueOnce([] as any);
 
             const response = await request(app).get('/user/statistics');
 
             expect(response.status).toBe(200);
             expect(response.body.totalMatches).toBe(0);
+            expect(response.body.pagination.total).toBe(0);
         });
     });
 });

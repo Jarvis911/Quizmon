@@ -129,7 +129,7 @@ export const createJob = async (req: Request, res: Response): Promise<void> => {
                     })),
             });
 
-            // Update job status
+            // Update job status (text phase complete)
             await prisma.aIGenerationJob.update({
                 where: { id: job.id },
                 data: { 
@@ -359,7 +359,10 @@ export const regenerateGeneratedQuestion = async (req: Request, res: Response): 
             });
         }
 
-        res.status(200).json(updated);
+        const refreshed = await prisma.aIGeneratedQuestion.findUnique({
+            where: { id: Number(questionId) },
+        });
+        res.status(200).json(refreshed ?? updated);
     } catch (err) {
         console.error('[regenerateGeneratedQuestion Error]:', err);
         res.status(500).json({ message: 'Regeneration failed', error: (err as Error).message });
@@ -472,6 +475,7 @@ export const approveAllAndCreateQuiz = async (req: Request, res: Response): Prom
                 categoryId: Number(categoryId),
                 organizationId: req.organizationId ?? null,
                 isPublic: false,
+                image: job.suggestedCoverImageUrl || null,
             },
         });
 
@@ -484,6 +488,18 @@ export const approveAllAndCreateQuiz = async (req: Request, res: Response): Prom
                 text: genQ.questionText,
                 type: genQ.questionType,
             };
+
+            if (genQ.generatedImageUrl) {
+                questionData.media = [
+                    {
+                        type: 'IMAGE',
+                        url: genQ.generatedImageUrl,
+                        effect: genQ.imageEffect,
+                        zoomX: 0.5,
+                        zoomY: 0.5,
+                    },
+                ];
+            }
 
             // Map optionsData to questionData based on type
             if (genQ.questionType === 'BUTTONS' || genQ.questionType === 'CHECKBOXES') {

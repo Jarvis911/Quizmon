@@ -30,6 +30,7 @@ jest.unstable_mockModule('../services/aiService.js', () => ({
     generateQuestions: jest.fn(),
     regenerateQuestion: jest.fn(),
     extractPdfText: jest.fn(),
+    extractStudentList: jest.fn(),
 }));
 
 const { default: request } = await import('supertest');

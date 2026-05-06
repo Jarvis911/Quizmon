@@ -34,18 +34,37 @@ jest.unstable_mockModule('../services/aiService.js', () => ({
     generateQuestions: jest.fn(),
     regenerateQuestion: jest.fn(),
     extractPdfText: jest.fn(),
+    extractStudentList: jest.fn(),
+}));
+
+jest.unstable_mockModule('../services/azureBlobService.js', () => ({
+    __esModule: true,
+    uploadBufferToAzure: (jest.fn() as any).mockResolvedValue('http://example.com/image.jpg'),
 }));
 
 jest.unstable_mockModule('../services/usageService.js', () => ({
     __esModule: true,
     trackUsage: jest.fn(),
     checkLimit: (jest.fn() as any).mockResolvedValue({ allowed: true, limit: 10, current: 0 }),
+    getUsage: (jest.fn() as any).mockResolvedValue([]),
+}));
+
+jest.unstable_mockModule('../services/aiQuizVisualHydration.js', () => ({
+    __esModule: true,
+    hydrateAiQuizVisuals: (jest.fn() as any).mockResolvedValue(undefined),
+    applyVisualsToRegeneratedRow: (jest.fn() as any).mockResolvedValue(undefined),
 }));
 
 jest.unstable_mockModule('../services/questionService.js', () => ({
     __esModule: true,
     createQuestion: jest.fn(),
     updateQuestion: jest.fn(),
+}));
+
+jest.unstable_mockModule('../services/featureGateService.js', () => ({
+    __esModule: true,
+    canUseFeature: (jest.fn() as any).mockResolvedValue({ allowed: true, limit: null }),
+    getOrgFeatures: (jest.fn() as any).mockResolvedValue([]),
 }));
 
 // Dynamically import app and supertest after mock is set up
@@ -110,7 +129,13 @@ describe('AI Routes', () => {
             const mockCompleteJob = { ...mockJob, status: AIGenerationStatus.COMPLETED, generatedQuestions: [], targetQuiz: null };
 
             prismaMock.aIGenerationJob.create.mockResolvedValue(mockJob as any);
-            (aiService.generateQuestions as any).mockResolvedValue(mockGeneratedQuestions);
+            (aiService.generateQuestions as any).mockResolvedValue({ 
+                questions: mockGeneratedQuestions,
+                suggestedTitle: 'New AI Quiz',
+                suggestedDescription: 'Desc',
+                suggestedCategory: 'General'
+            });
+            prismaMock.quizCategory.findFirst.mockResolvedValue(null);
             prismaMock.aIGeneratedQuestion.createMany.mockResolvedValue({ count: 1 });
             prismaMock.aIGenerationJob.update.mockResolvedValue({ ...mockJob, status: AIGenerationStatus.COMPLETED } as any);
             prismaMock.aIGenerationJob.findUnique.mockResolvedValue(mockCompleteJob as any);

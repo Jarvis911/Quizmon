@@ -19,11 +19,32 @@ jest.unstable_mockModule('../middleware/authMiddleware.js', () => ({
     },
 }));
 
+jest.unstable_mockModule('../middleware/orgMiddleware.js', () => ({
+    __esModule: true,
+    default: (req: Request, res: Response, next: NextFunction) => {
+        req.organizationId = 1;
+        next();
+    },
+}));
+
 jest.unstable_mockModule('../middleware/logMiddleware.js', () => ({
     __esModule: true,
     default: (req: Request, res: Response, next: NextFunction) => {
         next();
     },
+}));
+
+jest.unstable_mockModule('../services/featureGateService.js', () => ({
+    __esModule: true,
+    canUseFeature: (jest.fn() as any).mockResolvedValue({ allowed: true, limit: null }),
+    getOrgFeatures: (jest.fn() as any).mockResolvedValue([]),
+}));
+
+jest.unstable_mockModule('../services/usageService.js', () => ({
+    __esModule: true,
+    trackUsage: jest.fn(),
+    checkLimit: (jest.fn() as any).mockResolvedValue({ allowed: true, limit: 10, current: 0 }),
+    getUsage: (jest.fn() as any).mockResolvedValue([]),
 }));
 
 const { default: request } = await import('supertest');

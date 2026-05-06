@@ -12,23 +12,53 @@ const __dirname = path.dirname(__filename);
 export const getUserStats = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = Number(req.userId);
-        const { period } = req.query as { period?: string };
+        const { period, from, to, page, limit } = req.query as {
+            period?: string;
+            from?: string;
+            to?: string;
+            page?: string;
+            limit?: string;
+        };
 
         const now = new Date();
-        const fromDate = new Date(now);
-        if (period === 'week') fromDate.setDate(now.getDate() - 7);
-        else fromDate.setMonth(now.getMonth() - 1);
+        const periodFromDate = new Date(now);
+        if (period === 'week') periodFromDate.setDate(now.getDate() - 7);
+        else periodFromDate.setMonth(now.getMonth() - 1);
 
-        const results = await prisma.matchResult.findMany({
-            where: {
-                userId: userId,
-                createdAt: { gte: fromDate },
+        const parseDate = (s?: string): Date | undefined => {
+            if (!s) return undefined;
+            const d = new Date(s);
+            return Number.isNaN(d.getTime()) ? undefined : d;
+        };
+
+        // Prefer explicit from/to over period
+        const fromDate = parseDate(from) ?? periodFromDate;
+        const toDate = parseDate(to) ?? undefined;
+
+        const parsedLimit = Math.max(1, Math.min(100, Number(limit ?? 20)));
+        const parsedPage = Math.max(1, Number(page ?? 1));
+        const skip = (parsedPage - 1) * parsedLimit;
+
+        const whereClause = {
+            userId: userId,
+            createdAt: {
+                ...(fromDate ? { gte: fromDate } : {}),
+                ...(toDate ? { lte: toDate } : {}),
             },
-            include: {
-                match: { select: { quizId: true, quiz: { select: { title: true } } } },
-            },
-            orderBy: { createdAt: 'desc' },
-        });
+        } as const;
+
+        const [totalMatches, results] = await Promise.all([
+            prisma.matchResult.count({ where: whereClause }),
+            prisma.matchResult.findMany({
+                where: whereClause,
+                include: {
+                    match: { select: { quizId: true, quiz: { select: { title: true } } } },
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: parsedLimit,
+            }),
+        ]);
 
         if (results.length === 0) {
             res.status(200).json({
@@ -37,10 +67,19 @@ export const getUserStats = async (req: Request, res: Response): Promise<void> =
                 rankCounts: {},
                 winRate: 0,
                 recentMatches: [],
+                pagination: {
+                    page: parsedPage,
+                    limit: parsedLimit,
+                    total: 0,
+                    totalPages: 0,
+                    from: fromDate,
+                    to: toDate ?? null,
+                },
             });
             return;
         }
 
+        // To compute rank within each match, we need results for all players in the matches
         const matchIds = [...new Set(results.map((r) => r.matchId))];
 
         const allResultsInMatches = await prisma.matchResult.findMany({
@@ -63,11 +102,13 @@ export const getUserStats = async (req: Request, res: Response): Promise<void> =
             }
         }
 
-        const totalMatches = results.length;
+        const totalPages = Math.ceil(totalMatches / parsedLimit);
         const totalQuizzes = new Set(results.map((r) => r.match.quizId)).size;
-        const winRate = totalMatches > 0 ? (rankCounts[1] || 0) / totalMatches : 0;
+        // winRate here is within the returned slice window, not global
+        const sliceMatches = results.length;
+        const winRate = sliceMatches > 0 ? (rankCounts[1] || 0) / sliceMatches : 0;
 
-        const recentMatches = results.slice(0, 100).map((r) => ({
+        const recentMatches = results.map((r) => ({
             matchId: r.matchId,
             quizId: r.match.quizId,
             quizName: r.match.quiz.title,
@@ -82,6 +123,14 @@ export const getUserStats = async (req: Request, res: Response): Promise<void> =
             rankCounts,
             winRate,
             recentMatches,
+            pagination: {
+                page: parsedPage,
+                limit: parsedLimit,
+                total: totalMatches,
+                totalPages,
+                from: fromDate,
+                to: toDate ?? null,
+            },
         });
     } catch (err) {
         console.error(err);

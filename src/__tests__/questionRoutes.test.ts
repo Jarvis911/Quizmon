@@ -87,26 +87,6 @@ describe('Question Routes', () => {
         });
     });
 
-    describe('POST /question/range', () => {
-        it('should create a range question', async () => {
-            const response = await request(app)
-                .post('/question/range')
-                .send({ quizId: '1', text: 'Test?', minValue: '0', maxValue: '10', correctValue: '5' });
-
-            expect(response.status).toBe(201);
-        });
-    });
-
-    describe('PUT /question/range/:id', () => {
-        it('should update a range question', async () => {
-            const response = await request(app)
-                .put('/question/range/1')
-                .send({ quizId: '1', text: 'Test?', minValue: '0', maxValue: '10', correctValue: '5' });
-
-            expect(response.status).toBe(201);
-        });
-    });
-
     describe('POST /question/reorder', () => {
         it('should create a reorder question', async () => {
             const response = await request(app)

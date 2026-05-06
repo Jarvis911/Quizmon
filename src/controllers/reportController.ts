@@ -170,12 +170,16 @@ export const generateExcelReport = async (req: Request, res: Response): Promise<
             }
         }
 
-        // Setup response headers for download
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="quizmon_report_${match.id}.xlsx"`);
+        // Generate to buffer to ensure consistent downloads across proxies/runtime
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const buffer = (await workbook.xlsx.writeBuffer()) as any as Buffer;
 
-        await workbook.xlsx.write(res);
-        res.end();
+        const safeFilename = `quizmon_report_${match.id}.xlsx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+        res.setHeader('Content-Length', String(buffer.length));
+
+        res.status(200).send(buffer);
 
     } catch (error) {
         console.error('Export report error:', error);

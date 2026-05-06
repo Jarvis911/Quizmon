@@ -19,6 +19,20 @@ jest.unstable_mockModule('../middleware/authMiddleware.js', () => ({
     },
 }));
 
+jest.unstable_mockModule('../middleware/orgMiddleware.js', () => ({
+    __esModule: true,
+    default: (req: Request, res: Response, next: NextFunction) => {
+        req.organizationId = 1;
+        next();
+    },
+}));
+
+jest.unstable_mockModule('../services/featureGateService.js', () => ({
+    __esModule: true,
+    canUseFeature: (jest.fn() as any).mockResolvedValue({ allowed: true, limit: null }),
+    getOrgFeatures: (jest.fn() as any).mockResolvedValue([]),
+}));
+
 const { default: request } = await import('supertest');
 const { default: app } = await import('../app.js');
 
@@ -30,6 +44,7 @@ describe('Classroom Routes', () => {
     describe('POST /classrooms', () => {
         it('should create a classroom', async () => {
             const mockClassroom = { id: 1, name: 'Math 101' };
+            prismaMock.classroom.count.mockResolvedValue(0);
             prismaMock.classroom.create.mockResolvedValue(mockClassroom as any);
 
             const response = await request(app)
@@ -86,17 +101,21 @@ describe('Classroom Routes', () => {
 
     describe('POST /classrooms/join', () => {
         it('should join a classroom using invite code', async () => {
-            const mockClassroom = { id: 1, joinCode: 'ABCDEF' };
+            const mockClassroom = { id: 1, joinCode: 'ABCDEF', teacherId: 2, name: 'Math 101' };
             prismaMock.classroom.findUnique.mockResolvedValue(mockClassroom as any);
             prismaMock.classroomMember.findUnique.mockResolvedValue(null); // Not a member yet
-            prismaMock.classroomMember.create.mockResolvedValue({ classroomId: 1, userId: 1 } as any);
+            prismaMock.classroomMember.create.mockResolvedValue({ 
+                classroomId: 1, 
+                userId: 1,
+                user: { username: 'teststudent' }
+            } as any);
 
             const response = await request(app)
                 .post('/classrooms/join')
                 .send({ code: 'ABCDEF' });
 
             expect(response.status).toBe(201);
-            expect(response.body.message).toBe('Joined successfully');
+            expect(response.body.message).toBe('Yêu cầu đã được gửi. Vui lòng chờ giáo viên duyệt.');
         });
 
         it('should return 400 if already a member', async () => {
@@ -109,7 +128,7 @@ describe('Classroom Routes', () => {
                 .send({ code: 'ABCDEF' });
 
             expect(response.status).toBe(400);
-            expect(response.body.message).toBe('You are already a member of this classroom');
+            expect(response.body.message).toBe('Bạn đã là thành viên của lớp học này.');
         });
     });
 });

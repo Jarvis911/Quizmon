@@ -2,7 +2,7 @@ import { Router } from 'express';
 import authMiddleware from '../middleware/authMiddleware.js';
 import orgMiddleware from '../middleware/orgMiddleware.js';
 import upload from '../middleware/uploadMiddleware.js';
-import { getQuiz, createQuiz, updateQuiz, deleteQuiz, getRetrieveQuiz, getQuestionByQuiz, checkUserRateQuiz, getQuizRating, exploreQuizzes } from '../controllers/quizController.js';
+import { getQuiz, createQuiz, updateQuiz, deleteQuiz, getRetrieveQuiz, getQuestionByQuiz, checkUserRateQuiz, getQuizRating, exploreQuizzes, getOrgQuizzes, replicateQuiz, assignQuizToOrg, removeQuizFromOrg, getAssignableQuizzes } from '../controllers/quizController.js';
 
 const router: Router = Router();
 
@@ -94,17 +94,13 @@ router.put('/:id', authMiddleware, orgMiddleware, upload.single('file'), updateQ
 router.get('/', authMiddleware, orgMiddleware, getQuiz);
 
 // Explore Public Quizzes
-/**
- * @swagger
- * /quiz/explore:
- *   get:
- *     summary: Get all public quizzes
- *     tags: [Quiz]
- *     responses:
- *       200:
- *         description: List of public quizzes
- */
 router.get('/explore', exploreQuizzes);
+
+// Get organization library (all quizzes in current org)
+router.get('/org-library', authMiddleware, orgMiddleware, getOrgQuizzes);
+
+// Get assignable quizzes for homework (org-scoped)
+router.get('/assignable', authMiddleware, orgMiddleware, getAssignableQuizzes);
 
 // Get Quiz Questions
 /**
@@ -185,28 +181,13 @@ router.get('/:id/rated', authMiddleware, orgMiddleware, checkUserRateQuiz);
 router.get('/:id/rating', getQuizRating);
 
 // Delete Quiz
-/**
- * @swagger
- * /quiz/{id}:
- *   delete:
- *     summary: Delete a quiz
- *     tags: [Quiz]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Quiz deleted successfully
- *       404:
- *         description: Quiz not found
- *       403:
- *         description: Permission denied
- */
 router.delete('/:id', authMiddleware, orgMiddleware, deleteQuiz);
+
+// Replicate a public quiz to personal library
+router.post('/:id/replicate', authMiddleware, orgMiddleware, replicateQuiz);
+
+// Assign quiz to org / remove from org
+router.post('/:id/assign-to-org', authMiddleware, orgMiddleware, assignQuizToOrg);
+router.post('/:id/remove-from-org', authMiddleware, orgMiddleware, removeQuizFromOrg);
 
 export default router;

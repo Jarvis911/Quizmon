@@ -19,13 +19,17 @@ jest.unstable_mockModule('../middleware/authMiddleware.js', () => ({
     },
 }));
 
-jest.unstable_mockModule('../utils/cloudinary.js', () => ({
+jest.unstable_mockModule('../middleware/orgMiddleware.js', () => ({
     __esModule: true,
-    default: {
-        uploader: {
-            upload_stream: jest.fn()
-        }
-    }
+    default: (req: Request, res: Response, next: NextFunction) => {
+        req.organizationId = 1;
+        next();
+    },
+}));
+
+jest.unstable_mockModule('../services/azureBlobService.js', () => ({
+    __esModule: true,
+    uploadBufferToAzure: (jest.fn() as any).mockResolvedValue('http://example.com/image.jpg'),
 }));
 
 const { default: request } = await import('supertest');
@@ -53,6 +57,7 @@ describe('Quiz Routes', () => {
     describe('PUT /quiz/:id', () => {
         it('should update an existing quiz', async () => {
             const mockUpdatedQuiz = { id: 1, title: 'Updated Math Quiz', description: 'Updated' };
+            prismaMock.quiz.findUnique.mockResolvedValue({ id: 1, creatorId: 1, organizationId: 1 } as any);
             prismaMock.quiz.update.mockResolvedValue(mockUpdatedQuiz as any);
 
             const response = await request(app)

@@ -38,6 +38,7 @@ model User {
 
   classrooms        Classroom[]
   classroomMembers  ClassroomMember[]
+  expectedStudents  ExpectedStudent[]
   notifications     Notification[]
 
   // SaaS: Organization memberships
@@ -296,9 +297,10 @@ model AIGenerationJob {
   targetQuiz   Quiz?   @relation(fields: [targetQuizId], references: [id], onDelete: SetNull)
 
   // AI suggestions for new quiz
-  suggestedTitle       String?
-  suggestedDescription String?
-  suggestedCategoryId  Int?
+  suggestedTitle         String?
+  suggestedDescription   String?
+  suggestedCategoryId    Int?
+  suggestedCoverImageUrl String? // AI-generated cover, uploaded to blob storage
 
   // Job metadata
   status        AIGenerationStatus @default(PENDING)
@@ -364,6 +366,10 @@ model AIGeneratedQuestion {
   questionType QuestionType
   optionsData  Json // stores options, correct answers, etc.
 
+  // AI-generated illustration (optional)
+  generatedImageUrl String?
+  imageEffect       ImageEffect @default(NONE)
+
   // Review status
   status            AIQuestionStatus @default(PENDING)
   userFeedback      String? // user's feedback for regeneration
@@ -399,6 +405,12 @@ enum ClassroomRole {
   STUDENT
 }
 
+enum MemberStatus {
+  PENDING   // Chờ giáo viên duyệt
+  APPROVED  // Đã được duyệt
+  REJECTED  // Bị từ chối
+}
+
 model Classroom {
   id          Int      @id @default(autoincrement())
   name        String
@@ -413,8 +425,9 @@ model Classroom {
   organizationId Int?
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
-  members     ClassroomMember[]
-  assignments Match[]  // Các Quiz được giao cho lớp này
+  members          ClassroomMember[]
+  expectedStudents ExpectedStudent[]
+  assignments      Match[]  // Các Quiz được giao cho lớp này
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -423,8 +436,9 @@ model Classroom {
 }
 
 model ClassroomMember {
-  id          Int      @id @default(autoincrement())
-  role        ClassroomRole @default(STUDENT) // TEACHER (Trợ giảng) hoặc STUDENT
+  id          Int          @id @default(autoincrement())
+  role        ClassroomRole @default(STUDENT)
+  status      MemberStatus  @default(PENDING) // PENDING cho đến khi giáo viên approve
 
   classroomId Int
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
@@ -436,6 +450,25 @@ model ClassroomMember {
   @@unique([classroomId, userId])
   @@index([classroomId])
   @@index([userId])
+}
+
+// Danh sách học sinh dự kiến (import từ file PDF của nhà trường)
+model ExpectedStudent {
+  id          Int      @id @default(autoincrement())
+  name        String
+  studentCode String?  // Mã số học sinh
+  email       String?  // Email dự kiến
+
+  classroomId Int
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  // Link đến tài khoản thực tế nếu đã tham gia
+  matchedUserId Int?
+  matchedUser   User?    @relation(fields: [matchedUserId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime @default(now())
+
+  @@index([classroomId])
 }
 
 // ==================== NOTIFICATION MODELS ====================
