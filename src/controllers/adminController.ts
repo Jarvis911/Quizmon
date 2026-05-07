@@ -192,6 +192,7 @@ export const getAIConfigOptions = async (req: Request, res: Response) => {
             features: ['QUIZ_GENERATION', 'QUESTION_REGENERATION', 'AGENT_CHAT', 'IMAGE_GENERATION', 'STUDENT_LIST_OCR'],
             models: [
                 'gemini-2.5-flash',
+                'gemini-2.5-flash-image',
                 'gemini-2.5-flash-lite',
                 'gemini-2.0-flash',
                 'gemini-2.0-flash-lite',

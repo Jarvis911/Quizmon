@@ -1,6 +1,6 @@
 import { getModelForFeature } from './aiService.js';
 
-const DEFAULT_IMAGE_MODEL = 'gemini-2.0-flash-preview-image-generation';
+const DEFAULT_IMAGE_MODEL = 'gemini-2.5-flash-image';
 
 export async function generateGeminiImageBytes(
     prompt: string
