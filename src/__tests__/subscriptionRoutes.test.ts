@@ -10,13 +10,16 @@ jest.unstable_mockModule('../prismaClient.js', () => ({
     default: prismaMock,
 }));
 
+const passthroughAuth = (req: Request, _res: Response, next: NextFunction) => {
+    req.user = { id: 1 };
+    req.userId = 1;
+    next();
+};
+
 jest.unstable_mockModule('../middleware/authMiddleware.js', () => ({
     __esModule: true,
-    default: (req: Request, res: Response, next: NextFunction) => {
-        req.user = { id: 1 };
-        req.userId = 1;
-        next();
-    },
+    default: passthroughAuth,
+    optionalAuthMiddleware: passthroughAuth,
 }));
 
 jest.unstable_mockModule('../services/azureBlobService.js', () => ({
@@ -218,6 +221,175 @@ describe('Subscription Routes', () => {
 
             expect(response.status).toBe(200);
             expect(response.body.status).toBe('CANCELED');
+        });
+    });
+
+    describe('POST /subscriptions/fulfill (security)', () => {
+        const ORDER_ID = 'QUIZMON_1_2_1700000000000';
+
+        const mockMembership = (orgId: number) => {
+            // orgMiddleware path: header → findUnique, no header → findFirst
+            prismaMock.organizationMember.findFirst.mockResolvedValue({
+                id: 1,
+                organizationId: orgId,
+                userId: 1,
+                role: 'OWNER',
+                joinedAt: new Date(),
+            } as any);
+            prismaMock.organizationMember.findUnique.mockResolvedValue({
+                id: 1,
+                organizationId: orgId,
+                userId: 1,
+                role: 'OWNER',
+                joinedAt: new Date(),
+            } as any);
+        };
+
+        it('should reject when orderId is missing', async () => {
+            mockMembership(1);
+
+            const response = await request(app)
+                .post('/subscriptions/fulfill')
+                .send({});
+
+            expect(response.status).toBe(400);
+            expect(response.body.message).toMatch(/orderId/i);
+            expect(prismaMock.subscription.create).not.toHaveBeenCalled();
+        });
+
+        it('should return 404 when no Payment record exists for orderId', async () => {
+            mockMembership(1);
+            prismaMock.payment.findFirst.mockResolvedValue(null);
+
+            const response = await request(app)
+                .post('/subscriptions/fulfill')
+                .send({ orderId: 'NON_EXISTENT' });
+
+            expect(response.status).toBe(404);
+            expect(prismaMock.subscription.create).not.toHaveBeenCalled();
+        });
+
+        it('REGRESSION: must reject cross-tenant attempt — auth user belongs to org 1 but tries to fulfill payment owned by org 99', async () => {
+            // Authenticated user is a member of org 1 only.
+            mockMembership(1);
+
+            // The Payment they reference belongs to a different org (99).
+            prismaMock.payment.findFirst.mockResolvedValue({
+                id: 42,
+                organizationId: 99,
+                externalId: ORDER_ID,
+                status: 'COMPLETED',
+                paymentMethod: 'MOMO',
+                amount: 99000,
+                currency: 'VND',
+                description: 'Pro yearly',
+                createdAt: new Date(),
+            } as any);
+
+            const response = await request(app)
+                .post('/subscriptions/fulfill')
+                .send({
+                    orderId: ORDER_ID,
+                    // Attacker-supplied fields that the OLD vulnerable
+                    // implementation would have trusted blindly.
+                    orgId: 99,
+                    planId: 2,
+                    billingCycle: 'YEARLY',
+                    paymentMethod: 'MOCK',
+                });
+
+            expect(response.status).toBe(403);
+            // No subscription should ever be created for the attacker.
+            expect(prismaMock.subscription.create).not.toHaveBeenCalled();
+            expect(prismaMock.subscription.updateMany).not.toHaveBeenCalled();
+        });
+
+        it('REGRESSION: must NOT activate a plan when payment is still PAY_PENDING', async () => {
+            mockMembership(1);
+            prismaMock.payment.findFirst.mockResolvedValue({
+                id: 7,
+                organizationId: 1,
+                externalId: ORDER_ID,
+                status: 'PAY_PENDING',
+                paymentMethod: 'MOMO',
+                amount: 99000,
+                currency: 'VND',
+                description: 'Pending',
+                createdAt: new Date(),
+            } as any);
+
+            const response = await request(app)
+                .post('/subscriptions/fulfill')
+                .send({
+                    orderId: ORDER_ID,
+                    // Attacker tries to coerce the server into activating the
+                    // top-tier plan even though no payment has cleared.
+                    orgId: 1,
+                    planId: 999,
+                    billingCycle: 'YEARLY',
+                    paymentMethod: 'MOCK',
+                });
+
+            expect(response.status).toBe(202);
+            expect(response.body.status).toBe('PENDING');
+            expect(prismaMock.subscription.create).not.toHaveBeenCalled();
+            expect(prismaMock.subscription.updateMany).not.toHaveBeenCalled();
+        });
+
+        it('should return 400 when payment failed', async () => {
+            mockMembership(1);
+            prismaMock.payment.findFirst.mockResolvedValue({
+                id: 8,
+                organizationId: 1,
+                externalId: ORDER_ID,
+                status: 'PAY_FAILED',
+                paymentMethod: 'MOMO',
+                amount: 99000,
+                currency: 'VND',
+                description: 'Failed',
+                createdAt: new Date(),
+            } as any);
+
+            const response = await request(app)
+                .post('/subscriptions/fulfill')
+                .send({ orderId: ORDER_ID });
+
+            expect(response.status).toBe(400);
+            expect(response.body.status).toBe('FAILED');
+            expect(prismaMock.subscription.create).not.toHaveBeenCalled();
+        });
+
+        it('should return the active subscription when payment is COMPLETED', async () => {
+            mockMembership(1);
+            prismaMock.payment.findFirst.mockResolvedValue({
+                id: 9,
+                organizationId: 1,
+                externalId: ORDER_ID,
+                status: 'COMPLETED',
+                paymentMethod: 'MOMO',
+                amount: 99000,
+                currency: 'VND',
+                description: 'Pro',
+                createdAt: new Date(),
+            } as any);
+
+            const activeSub = {
+                id: 100,
+                status: 'ACTIVE',
+                billingCycle: 'YEARLY',
+                organizationId: 1,
+                planId: 2,
+                plan: { id: 2, name: 'Teacher Pro', features: [] },
+            };
+            prismaMock.subscription.findFirst.mockResolvedValue(activeSub as any);
+
+            const response = await request(app)
+                .post('/subscriptions/fulfill')
+                .send({ orderId: ORDER_ID });
+
+            expect(response.status).toBe(200);
+            expect(response.body.id).toBe(100);
+            expect(response.body.status).toBe('ACTIVE');
         });
     });
 

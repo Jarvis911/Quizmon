@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import authMiddleware from '../middleware/authMiddleware.js';
+import authMiddleware, { optionalAuthMiddleware } from '../middleware/authMiddleware.js';
 import orgMiddleware from '../middleware/orgMiddleware.js';
 import upload from '../middleware/uploadMiddleware.js';
-import { getQuiz, createQuiz, updateQuiz, deleteQuiz, getRetrieveQuiz, getQuestionByQuiz, checkUserRateQuiz, getQuizRating, exploreQuizzes, getOrgQuizzes, replicateQuiz, assignQuizToOrg, removeQuizFromOrg, getAssignableQuizzes } from '../controllers/quizController.js';
+import { getQuiz, createQuiz, updateQuiz, deleteQuiz, getRetrieveQuiz, getQuestionByQuiz, checkUserRateQuiz, getQuizRating, exploreQuizzes, getOrgQuizzes, replicateQuiz, assignQuizToOrg, removeQuizFromOrg, getAssignableQuizzes, checkoutQuiz, checkinQuiz, forceCheckinQuiz } from '../controllers/quizController.js';
 
 const router: Router = Router();
 
@@ -119,7 +119,7 @@ router.get('/assignable', authMiddleware, orgMiddleware, getAssignableQuizzes);
  *       200:
  *         description: List of questions
  */
-router.get('/:id/question', getQuestionByQuiz);
+router.get('/:id/question', optionalAuthMiddleware, orgMiddleware, getQuestionByQuiz);
 
 // Get Retrieve Quiz
 /**
@@ -138,7 +138,7 @@ router.get('/:id/question', getQuestionByQuiz);
  *       200:
  *         description: Quiz details
  */
-router.get('/:id', getRetrieveQuiz);
+router.get('/:id', optionalAuthMiddleware, orgMiddleware, getRetrieveQuiz);
 
 // Check User Rate
 /**
@@ -189,5 +189,10 @@ router.post('/:id/replicate', authMiddleware, orgMiddleware, replicateQuiz);
 // Assign quiz to org / remove from org
 router.post('/:id/assign-to-org', authMiddleware, orgMiddleware, assignQuizToOrg);
 router.post('/:id/remove-from-org', authMiddleware, orgMiddleware, removeQuizFromOrg);
+
+// Checkout lock
+router.post('/:id/checkout', authMiddleware, orgMiddleware, checkoutQuiz);
+router.post('/:id/checkin', authMiddleware, orgMiddleware, checkinQuiz);
+router.post('/:id/force-checkin', authMiddleware, orgMiddleware, forceCheckinQuiz);
 
 export default router;

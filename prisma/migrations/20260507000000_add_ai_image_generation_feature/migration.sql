@@ -1,0 +1,2 @@
+-- AlterEnum: Add AI_IMAGE_GENERATION to FeatureKey enum
+ALTER TYPE "FeatureKey" ADD VALUE 'AI_IMAGE_GENERATION';

@@ -1,0 +1,7 @@
+declare class EmailService {
+    private transporter;
+    private getTransporter;
+    sendEmail(to: string, subject: string, html: string): Promise<boolean>;
+}
+export declare const emailService: EmailService;
+export {};

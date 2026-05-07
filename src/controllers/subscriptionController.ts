@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../prismaClient.js';
-import { SubscriptionStatus, BillingCycle, PaymentMethod } from '@prisma/client';
+import { SubscriptionStatus, BillingCycle, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { createCheckoutSession, fulfillSubscription, handlePaymentCallback, getAvailableGateways } from '../services/paymentService.js';
 import { getUsage } from '../services/usageService.js';
 import { getOrgFeatures } from '../services/featureGateService.js';
@@ -39,31 +39,107 @@ export const createCheckout = async (req: Request, res: Response): Promise<void>
     }
 };
 
+/**
+ * POST /subscriptions/fulfill
+ *
+ * Status-check endpoint used by the post-payment redirect page.
+ *
+ * SECURITY: This endpoint must NOT be a fulfillment authority. The actual
+ * subscription activation is performed by the gateway IPN handler
+ * (e.g. `handleMomoIPN`), which verifies a signed server-to-server callback.
+ *
+ * Therefore this endpoint:
+ *   - Accepts ONLY `orderId` / `sessionId` from the body. Any other field
+ *     (`orgId`, `planId`, `billingCycle`, `paymentMethod`) is ignored — those
+ *     are recovered from the persisted `Payment` record created at checkout.
+ *   - Requires the caller to be a member of the organization that owns the
+ *     payment (enforced via `req.organizationId` set by `orgMiddleware`).
+ *   - Reports the current persisted state (COMPLETED / PAY_PENDING / PAY_FAILED).
+ *     It never activates a plan on its own.
+ */
 export const fulfillCheckout = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { orderId, sessionId, orgId, planId, billingCycle, paymentMethod } = req.body as { 
+        const { orderId, sessionId } = req.body as {
             orderId?: string;
-            sessionId?: string; 
-            orgId: number; 
-            planId: number;
-            billingCycle?: BillingCycle;
-            paymentMethod?: PaymentMethod;
+            sessionId?: string;
         };
 
         const resolvedOrderId = orderId || sessionId;
+        const organizationId = req.organizationId;
 
-        if (!resolvedOrderId || !orgId || !planId) {
-            res.status(400).json({ message: 'Missing fulfillment data (orderId, orgId, planId required)' });
+        if (!resolvedOrderId) {
+            res.status(400).json({ message: 'orderId is required' });
+            return;
+        }
+        if (!organizationId) {
+            res.status(400).json({ message: 'Organization context required' });
             return;
         }
 
-        const subscription = await fulfillSubscription(
-            resolvedOrderId,
-            orgId,
-            planId,
-            billingCycle,
-            paymentMethod || PaymentMethod.MOCK
-        );
+        const payment = await prisma.payment.findFirst({
+            where: { externalId: resolvedOrderId },
+        });
+
+        if (!payment) {
+            res.status(404).json({ message: 'Payment not found' });
+            return;
+        }
+
+        // Ownership check: the authenticated user must belong to the org that
+        // initiated this payment. `orgMiddleware` already verified membership
+        // for `req.organizationId`, so a strict equality check is sufficient.
+        if (payment.organizationId !== organizationId) {
+            res.status(403).json({ message: 'You do not have access to this payment' });
+            return;
+        }
+
+        if (payment.status === PaymentStatus.PAY_FAILED) {
+            res.status(400).json({
+                status: 'FAILED',
+                message: 'Payment failed. Please try again.',
+            });
+            return;
+        }
+
+        if (payment.status === PaymentStatus.REFUNDED) {
+            res.status(400).json({
+                status: 'REFUNDED',
+                message: 'Payment was refunded.',
+            });
+            return;
+        }
+
+        if (payment.status === PaymentStatus.PAY_PENDING) {
+            // The IPN has not yet confirmed this transaction. We deliberately
+            // do NOT activate the plan here — that would re-open the bypass
+            // vulnerability. The frontend should retry / display a pending
+            // state and rely on the IPN to flip status to COMPLETED.
+            res.status(202).json({
+                status: 'PENDING',
+                message: 'Payment is being verified. Please wait a moment and refresh.',
+            });
+            return;
+        }
+
+        // payment.status === COMPLETED → IPN has already activated the sub.
+        const subscription = await prisma.subscription.findFirst({
+            where: { organizationId, status: SubscriptionStatus.ACTIVE },
+            include: { plan: { include: { features: true } } },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        if (!subscription) {
+            // Edge case: payment is COMPLETED but no active subscription. This
+            // shouldn't normally happen (IPN creates the subscription in the
+            // same transaction). Surface a clear error rather than silently
+            // creating one from untrusted client data.
+            res.status(409).json({
+                status: 'COMPLETED_NO_SUBSCRIPTION',
+                message: 'Payment completed but subscription record is missing. Please contact support.',
+            });
+            return;
+        }
+
         res.status(200).json(subscription);
     } catch (err) {
         console.error('[fulfillCheckout Error]:', err);

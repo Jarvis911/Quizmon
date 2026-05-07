@@ -43,6 +43,9 @@ model User {
 
   // SaaS: Organization memberships
   organizationMembers OrganizationMember[]
+
+  // Quiz checkout locks
+  lockedQuizzes Quiz[] @relation("QuizLock")
 }
 
 model QuizCategory {
@@ -71,6 +74,12 @@ model Quiz {
   organizationId Int?
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
+  // Checkout lock
+  lockedById    Int?
+  lockedBy      User?     @relation("QuizLock", fields: [lockedById], references: [id])
+  lockedAt      DateTime?
+  lockExpiresAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -80,6 +89,7 @@ model Quiz {
   aiGenerationJobs AIGenerationJob[]
 
   @@index([organizationId])
+  @@index([lockedById])
 }
 
 model QuizRating {
@@ -532,6 +542,7 @@ enum PaymentMethod {
 
 enum FeatureKey {
   AI_GENERATION
+  AI_IMAGE_GENERATION
   UNLIMITED_MATCHES
   ADVANCED_ANALYTICS
   UNLIMITED_CLASSROOMS

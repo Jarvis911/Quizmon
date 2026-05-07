@@ -17,6 +17,13 @@ jest.unstable_mockModule('../middleware/authMiddleware.js', () => ({
         req.userId = 1;
         next();
     },
+    optionalAuthMiddleware: (req: Request, res: Response, next: NextFunction) => {
+        if (req.headers.authorization) {
+            req.user = { id: 1 };
+            req.userId = 1;
+        }
+        next();
+    },
 }));
 
 jest.unstable_mockModule('../middleware/orgMiddleware.js', () => ({

@@ -130,7 +130,14 @@ router.post('/checkout-free', authMiddleware, orgMiddleware, checkoutFree);
  * @swagger
  * /subscriptions/fulfill:
  *   post:
- *     summary: Fulfill a checkout session
+ *     summary: Check the status of a checkout session (post-redirect)
+ *     description: |
+ *       Status-only endpoint. The actual subscription activation is performed
+ *       server-to-server by the gateway IPN handler (e.g. /subscriptions/momo-ipn)
+ *       which verifies the gateway signature. This endpoint reads the persisted
+ *       Payment record (looked up by orderId) and reports its current state.
+ *       It never trusts orgId / planId / billingCycle / paymentMethod from the
+ *       caller — those are derived from the stored Payment / Subscription rows.
  *     tags: [Subscription]
  *     security:
  *       - bearerAuth: []
@@ -139,21 +146,25 @@ router.post('/checkout-free', authMiddleware, orgMiddleware, checkoutFree);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [orgId, planId]
+ *             required: [orderId]
  *             properties:
  *               orderId:
  *                 type: string
+ *                 description: The order ID returned by /subscriptions/checkout.
  *               sessionId:
  *                 type: string
- *               orgId:
- *                 type: integer
- *               planId:
- *                 type: integer
- *               paymentMethod:
- *                 type: string
+ *                 description: Alias for orderId (legacy field).
  *     responses:
  *       200:
- *         description: Subscription fulfilled
+ *         description: Payment is COMPLETED and the active subscription is returned.
+ *       202:
+ *         description: Payment is still PENDING — IPN has not arrived yet. Retry shortly.
+ *       400:
+ *         description: Payment failed or refunded.
+ *       403:
+ *         description: Authenticated user is not a member of the org that owns this payment.
+ *       404:
+ *         description: No Payment record found for the supplied orderId.
  */
 router.post('/fulfill', authMiddleware, orgMiddleware, fulfillCheckout);
 

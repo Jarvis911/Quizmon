@@ -1,0 +1,11 @@
+import { Request, Response } from 'express';
+export declare const getDashboardStats: (req: Request, res: Response) => Promise<void>;
+export declare const getQuizzes: (req: Request, res: Response) => Promise<void>;
+export declare const deleteQuiz: (req: Request, res: Response) => Promise<void>;
+export declare const getReports: (req: Request, res: Response) => Promise<void>;
+export declare const resolveReport: (req: Request, res: Response) => Promise<void>;
+export declare const getUsers: (req: Request, res: Response) => Promise<void>;
+export declare const getAIJobs: (req: Request, res: Response) => Promise<void>;
+export declare const getAIConfig: (req: Request, res: Response) => Promise<void>;
+export declare const updateAIConfig: (req: Request, res: Response) => Promise<void>;
+export declare const getAIConfigOptions: (req: Request, res: Response) => Promise<void>;

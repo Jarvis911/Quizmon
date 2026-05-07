@@ -82,10 +82,11 @@ export const getParticipants = async (req: Request, res: Response): Promise<void
     }
 };
 
-// Get single participant
+// Get single participant (with answers — requires ownership or host)
 export const getParticipant = async (req: Request, res: Response): Promise<void> => {
     try {
         const { matchId, id } = req.params;
+        const userId = req.userId;
 
         const participant = await prisma.matchParticipant.findFirst({
             where: {
@@ -99,6 +100,7 @@ export const getParticipant = async (req: Request, res: Response): Promise<void>
                         question: { select: { id: true, text: true, type: true } },
                     },
                 },
+                match: { select: { hostId: true } },
             },
         });
 
@@ -107,7 +109,17 @@ export const getParticipant = async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        res.status(200).json(participant);
+        // Only the participant themselves or the match host may see the full answer detail
+        const isOwner = participant.userId !== null && participant.userId === Number(userId);
+        const isHost = participant.match.hostId === Number(userId);
+        if (!isOwner && !isHost) {
+            res.status(403).json({ message: 'Not authorized to view this participant' });
+            return;
+        }
+
+        // Omit internal match relation from the response
+        const { match: _match, ...participantData } = participant;
+        res.status(200).json(participantData);
     } catch (err) {
         res.status(500).json(err);
     }
@@ -117,7 +129,25 @@ export const getParticipant = async (req: Request, res: Response): Promise<void>
 export const updateParticipant = async (req: Request, res: Response): Promise<void> => {
     try {
         const { matchId, id } = req.params;
+        const userId = req.userId;
         const { displayName, avatarUrl } = req.body as UpdateParticipantBody;
+
+        // Verify participant belongs to this match
+        const existing = await prisma.matchParticipant.findFirst({
+            where: { id: Number(id), matchId: Number(matchId) },
+            select: { userId: true },
+        });
+
+        if (!existing) {
+            res.status(404).json({ message: 'Participant not found in this match' });
+            return;
+        }
+
+        // Only the participant's own user may update their display info
+        if (existing.userId !== null && existing.userId !== Number(userId)) {
+            res.status(403).json({ message: 'Not authorized to update this participant' });
+            return;
+        }
 
         const participant = await prisma.matchParticipant.update({
             where: { id: Number(id) },
@@ -139,7 +169,30 @@ export const updateParticipant = async (req: Request, res: Response): Promise<vo
 // Leave match (delete participant)
 export const deleteParticipant = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { id } = req.params;
+        const { matchId, id } = req.params;
+        const userId = req.userId;
+
+        // Verify participant belongs to this match
+        const existing = await prisma.matchParticipant.findFirst({
+            where: { id: Number(id), matchId: Number(matchId) },
+            select: {
+                userId: true,
+                match: { select: { hostId: true } },
+            },
+        });
+
+        if (!existing) {
+            res.status(404).json({ message: 'Participant not found in this match' });
+            return;
+        }
+
+        // Allow: the participant's own user OR the match host
+        const isOwner = existing.userId !== null && existing.userId === Number(userId);
+        const isHost = existing.match.hostId === Number(userId);
+        if (!isOwner && !isHost) {
+            res.status(403).json({ message: 'Not authorized to remove this participant' });
+            return;
+        }
 
         await prisma.matchParticipant.delete({
             where: { id: Number(id) },

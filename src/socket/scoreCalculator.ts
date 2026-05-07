@@ -8,6 +8,57 @@ interface ScoreResult {
     correctLatLon?: { latitude?: number; longitude?: number };
 }
 
+export type TypeAnswerVerdict = 'correct' | 'near' | 'wrong';
+
+const normalizeTextAnswer = (s: string) => {
+    return s
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .replace(/đ/g, 'd')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+};
+
+const levenshtein = (a: string, b: string) => {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    const dp = new Array<number>(b.length + 1);
+    for (let j = 0; j <= b.length; j++) dp[j] = j;
+    for (let i = 1; i <= a.length; i++) {
+        let prev = dp[0];
+        dp[0] = i;
+        for (let j = 1; j <= b.length; j++) {
+            const tmp = dp[j];
+            dp[j] = Math.min(
+                dp[j] + 1,
+                dp[j - 1] + 1,
+                prev + (a[i - 1] === b[j - 1] ? 0 : 1)
+            );
+            prev = tmp;
+        }
+    }
+    return dp[b.length];
+};
+
+export function getTypeAnswerVerdict(correctAnswer: string | undefined | null, answer: string): TypeAnswerVerdict {
+    const ca = normalizeTextAnswer(correctAnswer || '');
+    const ua = normalizeTextAnswer(answer);
+    if (!ca || !ua) return 'wrong';
+    if (ua === ca) return 'correct';
+
+    const dist = levenshtein(ua, ca);
+    const maxLen = Math.max(ua.length, ca.length);
+    const similarity = maxLen === 0 ? 0 : 1 - dist / maxLen;
+
+    const nearByDistance = dist <= (maxLen >= 12 ? 2 : 1);
+    const nearBySimilarity = similarity >= (maxLen >= 12 ? 0.82 : 0.88);
+    return nearByDistance || nearBySimilarity ? 'near' : 'wrong';
+}
+
 /**
  * Check if an answer is correct and calculate the result.
  */
@@ -49,7 +100,7 @@ export function checkAnswer(question: Question, answer: AnswerType | undefined):
         case 'TYPEANSWER':
             return {
                 isCorrect: question.data
-                    ? question.data.correctAnswer!.toLowerCase().trim() === (answer as string).toLowerCase().trim()
+                    ? getTypeAnswerVerdict(question.data.correctAnswer, answer as string) === 'correct'
                     : false,
             };
 

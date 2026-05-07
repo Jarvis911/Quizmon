@@ -3,6 +3,13 @@ import { uploadBufferToAzure } from '../services/azureBlobService.js';
 import prisma from '../prismaClient.js';
 import { deleteQuizCascade } from '../services/deleteQuizCascade.js';
 import { notificationService } from '../services/notificationService.js';
+import { OrganizationRole } from '@prisma/client';
+
+const QUIZ_MANAGER_ROLES: OrganizationRole[] = [
+    OrganizationRole.OWNER,
+    OrganizationRole.ADMIN,
+    OrganizationRole.TEACHER,
+];
 
 interface CreateQuizBody {
     title: string;
@@ -10,6 +17,20 @@ interface CreateQuizBody {
     isPublic?: boolean;
     categoryId: string | number;
 }
+
+interface QuizAccessScope {
+    isPublic: boolean;
+    creatorId: number;
+    organizationId: number | null;
+}
+
+const canReadQuiz = (quiz: QuizAccessScope, userId?: number, organizationId?: number): boolean => {
+    return (
+        quiz.isPublic ||
+        (userId !== undefined && quiz.creatorId === Number(userId)) ||
+        (organizationId !== undefined && quiz.organizationId === organizationId)
+    );
+};
 
 export const createQuiz = async (req: Request, res: Response): Promise<void> => {
     const { title, description, isPublic, categoryId, imageUrl: directImageUrl } = req.body as CreateQuizBody & { imageUrl?: string };
@@ -138,6 +159,16 @@ export const getRetrieveQuiz = async (req: Request, res: Response): Promise<void
             },
         });
 
+        if (!data) {
+            res.status(404).json({ message: 'Quiz not found' });
+            return;
+        }
+
+        if (!canReadQuiz(data, req.userId, req.organizationId)) {
+            res.status(403).json({ message: 'You do not have permission to view this quiz' });
+            return;
+        }
+
         res.status(200).json(data);
     } catch (err) {
         const error = err as Error;
@@ -155,7 +186,7 @@ export const updateQuiz = async (req: Request, res: Response): Promise<void> => 
         // Ownership check
         const existingQuiz = await prisma.quiz.findUnique({
             where: { id: Number(id) },
-            select: { creatorId: true, organizationId: true },
+            select: { creatorId: true, organizationId: true, lockedById: true, lockExpiresAt: true },
         });
 
         if (!existingQuiz) {
@@ -164,12 +195,34 @@ export const updateQuiz = async (req: Request, res: Response): Promise<void> => 
         }
 
         if (existingQuiz.creatorId !== userId) {
-            // If the user name is not the creator, check if they belong to the same organization
-            // and have appropriate permissions (optional, but good for SaaS)
-            if (req.organizationId && existingQuiz.organizationId === req.organizationId) {
-                // Allow if in same org (basic implementation)
-            } else {
+            // Non-creators need OWNER/ADMIN/TEACHER role in the quiz's org
+            const canManage =
+                req.organizationId &&
+                existingQuiz.organizationId === req.organizationId &&
+                await prisma.organizationMember.findFirst({
+                    where: {
+                        organizationId: req.organizationId,
+                        userId,
+                        role: { in: QUIZ_MANAGER_ROLES },
+                    },
+                });
+
+            if (!canManage) {
                 res.status(403).json({ message: 'You do not have permission to update this quiz' });
+                return;
+            }
+        }
+
+        // Checkout lock check (org quizzes only)
+        if (existingQuiz.organizationId) {
+            const now = new Date();
+            if (
+                existingQuiz.lockedById &&
+                existingQuiz.lockedById !== userId &&
+                existingQuiz.lockExpiresAt &&
+                existingQuiz.lockExpiresAt > now
+            ) {
+                res.status(423).json({ message: 'Quiz đang được chỉnh sửa bởi người khác.' });
                 return;
             }
         }
@@ -231,6 +284,25 @@ export const getQuestionByQuiz = async (req: Request, res: Response): Promise<vo
     const { id } = req.params;
 
     try {
+        const quiz = await prisma.quiz.findUnique({
+            where: { id: Number(id) },
+            select: {
+                isPublic: true,
+                creatorId: true,
+                organizationId: true,
+            },
+        });
+
+        if (!quiz) {
+            res.status(404).json({ message: 'Quiz not found' });
+            return;
+        }
+
+        if (!canReadQuiz(quiz, req.userId, req.organizationId)) {
+            res.status(403).json({ message: 'You do not have permission to view this quiz' });
+            return;
+        }
+
         const data = await prisma.question.findMany({
             where: {
                 quizId: Number(id),
@@ -316,9 +388,19 @@ export const deleteQuiz = async (req: Request, res: Response): Promise<void> => 
         }
 
         if (quiz.creatorId !== userId) {
-            if (req.organizationId && quiz.organizationId === req.organizationId) {
-                // Allow deletion if in same org
-            } else {
+            // Non-creators need OWNER/ADMIN/TEACHER role in the quiz's org
+            const canManage =
+                req.organizationId &&
+                quiz.organizationId === req.organizationId &&
+                await prisma.organizationMember.findFirst({
+                    where: {
+                        organizationId: req.organizationId,
+                        userId,
+                        role: { in: QUIZ_MANAGER_ROLES },
+                    },
+                });
+
+            if (!canManage) {
                 res.status(403).json({ message: 'You do not have permission to delete this quiz' });
                 return;
             }
@@ -349,11 +431,22 @@ export const getOrgQuizzes = async (req: Request, res: Response): Promise<void> 
             include: {
                 creator: { select: { id: true, username: true } },
                 category: { select: { id: true, name: true } },
+                lockedBy: { select: { id: true, username: true } },
                 _count: { select: { questions: true } }
             },
         });
 
-        res.status(200).json(data);
+        // Clear expired locks in the response
+        const now = new Date();
+        const cleaned = data.map(q => ({
+            ...q,
+            lockedById: q.lockExpiresAt && q.lockExpiresAt > now ? q.lockedById : null,
+            lockedBy: q.lockExpiresAt && q.lockExpiresAt > now ? q.lockedBy : null,
+            lockedAt: q.lockExpiresAt && q.lockExpiresAt > now ? q.lockedAt : null,
+            lockExpiresAt: q.lockExpiresAt && q.lockExpiresAt > now ? q.lockExpiresAt : null,
+        }));
+
+        res.status(200).json(cleaned);
     } catch (err) {
         const error = err as Error;
         res.status(400).json({ message: error.message });
@@ -505,6 +598,163 @@ export const removeQuizFromOrg = async (req: Request, res: Response): Promise<vo
         });
 
         res.status(200).json(updated);
+    } catch (err) {
+        const error = err as Error;
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const LOCK_DURATION_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+// Checkout (acquire edit lock) for an org quiz
+export const checkoutQuiz = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const userId = Number(req.userId);
+
+    try {
+        const quiz = await prisma.quiz.findUnique({
+            where: { id: Number(id) },
+            select: {
+                organizationId: true,
+                lockedById: true,
+                lockedAt: true,
+                lockExpiresAt: true,
+                lockedBy: { select: { id: true, username: true } },
+            },
+        });
+
+        if (!quiz) {
+            res.status(404).json({ message: 'Quiz not found' });
+            return;
+        }
+
+        // Only lock org quizzes
+        if (!quiz.organizationId) {
+            res.status(200).json({ locked: false, message: 'Personal quizzes do not require checkout' });
+            return;
+        }
+
+        const now = new Date();
+        const isActiveLock =
+            quiz.lockedById &&
+            quiz.lockedById !== userId &&
+            quiz.lockExpiresAt &&
+            quiz.lockExpiresAt > now;
+
+        if (isActiveLock) {
+            res.status(423).json({
+                message: 'Quiz đang bị khóa bởi người khác.',
+                lockedBy: quiz.lockedBy?.username ?? 'Unknown',
+                lockedById: quiz.lockedById,
+                lockedAt: quiz.lockedAt,
+                lockExpiresAt: quiz.lockExpiresAt,
+            });
+            return;
+        }
+
+        // Acquire or renew lock
+        const lockExpiresAt = new Date(now.getTime() + LOCK_DURATION_MS);
+        await prisma.quiz.update({
+            where: { id: Number(id) },
+            data: {
+                lockedById: userId,
+                lockedAt: now,
+                lockExpiresAt,
+            },
+        });
+
+        res.status(200).json({ locked: true, lockedById: userId, lockedAt: now, lockExpiresAt });
+    } catch (err) {
+        const error = err as Error;
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Checkin (release edit lock)
+export const checkinQuiz = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const userId = Number(req.userId);
+
+    try {
+        const quiz = await prisma.quiz.findUnique({
+            where: { id: Number(id) },
+            select: { lockedById: true, organizationId: true },
+        });
+
+        if (!quiz) {
+            res.status(404).json({ message: 'Quiz not found' });
+            return;
+        }
+
+        // Allow the lock holder OR org OWNER/ADMIN to release
+        if (quiz.lockedById !== userId) {
+            const isAdmin =
+                req.organizationId &&
+                quiz.organizationId === req.organizationId &&
+                await prisma.organizationMember.findFirst({
+                    where: {
+                        organizationId: req.organizationId,
+                        userId,
+                        role: { in: [OrganizationRole.OWNER, OrganizationRole.ADMIN] },
+                    },
+                });
+
+            if (!isAdmin) {
+                res.status(403).json({ message: 'Bạn không thể giải phóng khóa của người khác.' });
+                return;
+            }
+        }
+
+        await prisma.quiz.update({
+            where: { id: Number(id) },
+            data: { lockedById: null, lockedAt: null, lockExpiresAt: null },
+        });
+
+        res.status(200).json({ message: 'Lock released' });
+    } catch (err) {
+        const error = err as Error;
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Force checkin (OWNER/ADMIN only — forcibly remove any lock)
+export const forceCheckinQuiz = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const userId = Number(req.userId);
+
+    try {
+        const quiz = await prisma.quiz.findUnique({
+            where: { id: Number(id) },
+            select: { organizationId: true },
+        });
+
+        if (!quiz) {
+            res.status(404).json({ message: 'Quiz not found' });
+            return;
+        }
+
+        const isAdmin =
+            req.organizationId &&
+            quiz.organizationId === req.organizationId &&
+            await prisma.organizationMember.findFirst({
+                where: {
+                    organizationId: req.organizationId,
+                    userId,
+                    role: { in: [OrganizationRole.OWNER, OrganizationRole.ADMIN] },
+                },
+            });
+
+        if (!isAdmin) {
+            res.status(403).json({ message: 'Chỉ OWNER/ADMIN mới có thể force unlock.' });
+            return;
+        }
+
+        await prisma.quiz.update({
+            where: { id: Number(id) },
+            data: { lockedById: null, lockedAt: null, lockExpiresAt: null },
+        });
+
+        res.status(200).json({ message: 'Lock force-released' });
     } catch (err) {
         const error = err as Error;
         res.status(500).json({ message: error.message });

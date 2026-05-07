@@ -1,0 +1,15 @@
+import { Request, Response } from 'express';
+export declare const createQuiz: (req: Request, res: Response) => Promise<void>;
+export declare const getQuiz: (req: Request, res: Response) => Promise<void>;
+export declare const exploreQuizzes: (req: Request, res: Response) => Promise<void>;
+export declare const getRetrieveQuiz: (req: Request, res: Response) => Promise<void>;
+export declare const updateQuiz: (req: Request, res: Response) => Promise<void>;
+export declare const getQuestionByQuiz: (req: Request, res: Response) => Promise<void>;
+export declare const getQuizRating: (req: Request, res: Response) => Promise<void>;
+export declare const checkUserRateQuiz: (req: Request, res: Response) => Promise<void>;
+export declare const deleteQuiz: (req: Request, res: Response) => Promise<void>;
+export declare const getOrgQuizzes: (req: Request, res: Response) => Promise<void>;
+export declare const replicateQuiz: (req: Request, res: Response) => Promise<void>;
+export declare const assignQuizToOrg: (req: Request, res: Response) => Promise<void>;
+export declare const removeQuizFromOrg: (req: Request, res: Response) => Promise<void>;
+export declare const getAssignableQuizzes: (req: Request, res: Response) => Promise<void>;

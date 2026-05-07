@@ -1,0 +1,15 @@
+import { Request, Response } from 'express';
+export declare const createClassroom: (req: Request, res: Response) => Promise<void>;
+export declare const getClassrooms: (req: Request, res: Response) => Promise<void>;
+export declare const getClassroomById: (req: Request, res: Response) => Promise<void>;
+export declare const joinClassroom: (req: Request, res: Response) => Promise<void>;
+export declare const joinByInviteLink: (req: Request, res: Response) => Promise<void>;
+export declare const approveMember: (req: Request, res: Response) => Promise<void>;
+export declare const rejectMember: (req: Request, res: Response) => Promise<void>;
+export declare const removeMember: (req: Request, res: Response) => Promise<void>;
+export declare const matchExpectedStudent: (req: Request, res: Response) => Promise<void>;
+export declare const unmatchExpectedStudent: (req: Request, res: Response) => Promise<void>;
+export declare const importExpectedStudents: (req: Request, res: Response) => Promise<void>;
+export declare const clearExpectedStudents: (req: Request, res: Response) => Promise<void>;
+export declare const getPendingMembers: (req: Request, res: Response) => Promise<void>;
+export declare const regenerateInviteLink: (req: Request, res: Response) => Promise<void>;

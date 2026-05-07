@@ -1,6 +1,6 @@
 import { Server } from 'socket.io';
 import { getMatch, saveMatch, matchIntervals } from './matchStore.js';
-import { checkAnswer, calculatePoints } from './scoreCalculator.js';
+import { checkAnswer, calculatePoints, getTypeAnswerVerdict } from './scoreCalculator.js';
 import { QUESTION_TIME_LIMIT, TIME_UPDATE_INTERVAL_MS, NEXT_QUESTION_DELAY_MS } from './constants.js';
 
 /**
@@ -158,6 +158,10 @@ export async function processTimeUp(io: Server, matchId: string | number): Promi
             isCorrect: result.isCorrect,
             questionId,
             correctAnswer, // Send the correct answer here
+            verdict: question.type === 'TYPEANSWER'
+                ? getTypeAnswerVerdict(question.data?.correctAnswer, typeof answer === 'string' ? answer : '')
+                : (result.isCorrect ? 'correct' : 'wrong'),
+            ...(question.type === 'TYPEANSWER' && { phase: 'reveal' }),
             ...(question.type === 'LOCATION' && { correctLatLon: result.correctLatLon }),
         });
     }

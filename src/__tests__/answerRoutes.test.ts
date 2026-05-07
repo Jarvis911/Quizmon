@@ -17,6 +17,13 @@ jest.unstable_mockModule('../middleware/authMiddleware.js', () => ({
         req.userId = 10;
         next();
     },
+    optionalAuthMiddleware: (req: Request, res: Response, next: NextFunction) => {
+        if (req.headers.authorization) {
+            req.user = { id: 10 };
+            req.userId = 10;
+        }
+        next();
+    },
 }));
 
 jest.unstable_mockModule('../services/questionService.js', () => ({
@@ -31,6 +38,8 @@ jest.unstable_mockModule('../services/aiService.js', () => ({
     regenerateQuestion: jest.fn(),
     extractPdfText: jest.fn(),
     extractStudentList: jest.fn(),
+    processAgentChat: jest.fn(),
+    getModelForFeature: (jest.fn() as any).mockResolvedValue('gemini-2.5-flash'),
 }));
 
 const { default: request } = await import('supertest');

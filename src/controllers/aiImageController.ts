@@ -4,8 +4,6 @@ import { generateGeminiImageBytes } from '../services/geminiImageApiService.js';
 import { trackUsage, checkLimit } from '../services/usageService.js';
 import { FeatureKey } from '@prisma/client';
 
-const IMAGE_QUOTA_COST = 3;
-
 export const generateImage = async (req: Request, res: Response): Promise<void> => {
     try {
         const orgId = req.organizationId;
@@ -31,24 +29,16 @@ export const generateImage = async (req: Request, res: Response): Promise<void> 
             return;
         }
 
-        // Check quota: 3 ai_generations per image
+        // Check dedicated image generation quota (separate from AI text quota)
         const { allowed, limit, current } = await checkLimit(
             orgId,
-            'ai_generations',
-            FeatureKey.AI_GENERATION
+            'ai_image_generations',
+            FeatureKey.AI_IMAGE_GENERATION
         );
 
         if (!allowed) {
             res.status(403).json({
-                message: `Bạn đã đạt giới hạn AI (${current}/${limit}). Vui lòng nâng cấp gói để tiếp tục.`,
-            });
-            return;
-        }
-
-        // Also check we have at least IMAGE_QUOTA_COST remaining
-        if (limit !== null && current + IMAGE_QUOTA_COST > limit) {
-            res.status(403).json({
-                message: `Tạo 1 ảnh cần ${IMAGE_QUOTA_COST} quota, nhưng bạn chỉ còn ${limit - current}. Vui lòng nâng cấp gói.`,
+                message: `Bạn đã đạt giới hạn tạo ảnh AI tháng này (${current}/${limit} ảnh). Vui lòng nâng cấp gói để tiếp tục.`,
             });
             return;
         }
@@ -72,8 +62,8 @@ export const generateImage = async (req: Request, res: Response): Promise<void> 
             img.mimeType
         );
 
-        // Charge 3 quota units
-        await trackUsage(orgId, 'ai_generations', IMAGE_QUOTA_COST);
+        // Charge 1 image generation quota unit
+        await trackUsage(orgId, 'ai_image_generations', 1);
 
         res.status(200).json({
             url,

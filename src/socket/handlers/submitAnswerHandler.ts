@@ -3,6 +3,7 @@ import { CustomSocket, SubmitAnswerPayload } from '../types.js';
 import { getMatch, saveMatch, withMatchLock } from '../matchStore.js';
 import { validateAnswer } from '../answerValidator.js';
 import { processTimeUp } from '../gameTimer.js';
+import { getTypeAnswerVerdict } from '../scoreCalculator.js';
 
 export function handleSubmitAnswer(io: Server, socket: CustomSocket) {
     return async ({ matchId: rawMatchId, userId, questionId, answer }: SubmitAnswerPayload) => {
@@ -13,6 +14,7 @@ export function handleSubmitAnswer(io: Server, socket: CustomSocket) {
         // simultaneously overwrite each other's answer in Redis.
         let allSubmitted = false;
         let emitError: string | null = null;
+        let immediateVerdict: 'correct' | 'near' | 'wrong' | null = null;
 
         await withMatchLock(matchId, async () => {
             // Re-read the FRESH state inside the lock — this is the authoritative read.
@@ -37,8 +39,11 @@ export function handleSubmitAnswer(io: Server, socket: CustomSocket) {
             }
 
             // Check if already submitted
+            // TYPEANSWER supports multiple attempts until correct.
             if (player.submitted.has(questionId)) {
-                emitError = 'Bạn đã trả lời câu hỏi này';
+                emitError = currentQuestion.type === 'TYPEANSWER'
+                    ? 'Bạn đã trả lời đúng câu hỏi này'
+                    : 'Bạn đã trả lời câu hỏi này';
                 return;
             }
 
@@ -55,6 +60,15 @@ export function handleSubmitAnswer(io: Server, socket: CustomSocket) {
                 return;
             }
 
+            // For TYPEANSWER, compute verdict immediately (no need to wait for time-up).
+            if (currentQuestion.type === 'TYPEANSWER') {
+                immediateVerdict = getTypeAnswerVerdict(currentQuestion.data?.correctAnswer, answer as string);
+                // Only lock submission if correct; near/wrong can retry.
+                if (immediateVerdict === 'correct') {
+                    player.submitted.add(questionId);
+                }
+            }
+
             // Store the answer
             if (!matchState.answers.has(questionId)) {
                 matchState.answers.set(questionId, new Map());
@@ -65,13 +79,20 @@ export function handleSubmitAnswer(io: Server, socket: CustomSocket) {
                 submitRemainingTime: matchState.remainingTime,
             });
 
-            player.submitted.add(questionId);
+            // For non-TYPEANSWER questions, a single submission locks the question.
+            if (currentQuestion.type !== 'TYPEANSWER') {
+                player.submitted.add(questionId);
+            }
 
             // Save once — atomically within this lock
             await saveMatch(matchId, matchState);
 
             // Check if ALL players have now submitted
-            allSubmitted = matchState.players.every((p) => p.submitted.has(questionId));
+            // TYPEANSWER does not end early based on allSubmitted (players may retry).
+            allSubmitted =
+                currentQuestion.type === 'TYPEANSWER'
+                    ? false
+                    : matchState.players.every((p) => p.submitted.has(questionId));
         });
 
         if (emitError) {
@@ -80,6 +101,17 @@ export function handleSubmitAnswer(io: Server, socket: CustomSocket) {
 
         // Emit confirmation to user (outside the lock — no write needed)
         socket.emit('answerSubmitted', { questionId });
+
+        // For TYPEANSWER, emit per-attempt verdict immediately (without revealing the correct answer).
+        if (immediateVerdict) {
+            io.to(String(matchId)).emit('answerResult', {
+                userId,
+                questionId,
+                isCorrect: immediateVerdict === 'correct',
+                verdict: immediateVerdict,
+                phase: 'attempt',
+            });
+        }
 
         // If everyone answered, trigger early time-up (outside the lock to avoid deadlock)
         if (allSubmitted) {

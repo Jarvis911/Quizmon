@@ -273,6 +273,16 @@ export const updateGeneratedQuestion = async (req: Request, res: Response): Prom
             return;
         }
 
+        // Verify the question belongs to this job (prevents IDOR)
+        const existingQuestion = await prisma.aIGeneratedQuestion.findFirst({
+            where: { id: Number(questionId), jobId: Number(id) },
+        });
+
+        if (!existingQuestion) {
+            res.status(404).json({ message: 'Question not found' });
+            return;
+        }
+
         const updateData: Prisma.AIGeneratedQuestionUpdateInput = { status };
 
         if (userFeedback) {
@@ -308,8 +318,9 @@ export const regenerateGeneratedQuestion = async (req: Request, res: Response): 
             return;
         }
 
-        const existingQuestion = await prisma.aIGeneratedQuestion.findUnique({
-            where: { id: Number(questionId) },
+        // Verify the question belongs to this job (prevents IDOR)
+        const existingQuestion = await prisma.aIGeneratedQuestion.findFirst({
+            where: { id: Number(questionId), jobId: Number(id) },
         });
 
         if (!existingQuestion) {
@@ -390,6 +401,16 @@ export const updateGeneratedQuestionContent = async (req: Request, res: Response
             return;
         }
 
+        // Verify the question belongs to this job (prevents IDOR)
+        const existingQuestion = await prisma.aIGeneratedQuestion.findFirst({
+            where: { id: Number(questionId), jobId: Number(id) },
+        });
+
+        if (!existingQuestion) {
+            res.status(404).json({ message: 'Question not found' });
+            return;
+        }
+
         const updateData: Prisma.AIGeneratedQuestionUpdateInput = {};
         if (questionText !== undefined) updateData.questionText = questionText;
         if (questionType !== undefined) updateData.questionType = questionType;
@@ -419,6 +440,16 @@ export const deleteGeneratedQuestion = async (req: Request, res: Response): Prom
 
         if (!job) {
             res.status(404).json({ message: 'Job not found' });
+            return;
+        }
+
+        // Verify the question belongs to this job (prevents IDOR)
+        const existingQuestion = await prisma.aIGeneratedQuestion.findFirst({
+            where: { id: Number(questionId), jobId: Number(id) },
+        });
+
+        if (!existingQuestion) {
+            res.status(404).json({ message: 'Question not found' });
             return;
         }
 
@@ -578,6 +609,16 @@ export const updateJobStatus = async (req: Request, res: Response): Promise<void
     try {
         const { id } = req.params;
         const { status } = req.body as { status: AIGenerationStatus };
+        const userId = req.userId;
+
+        const existing = await prisma.aIGenerationJob.findFirst({
+            where: { id: Number(id), userId: Number(userId) },
+        });
+
+        if (!existing) {
+            res.status(404).json({ message: 'Job not found' });
+            return;
+        }
 
         const job = await prisma.aIGenerationJob.update({
             where: { id: Number(id) },

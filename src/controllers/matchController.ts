@@ -29,6 +29,27 @@ export const createMatch = async (req: Request, res: Response): Promise<void> =>
             return;
         }
 
+        // Verify the caller may use this quiz (must be public, their own, or within their org)
+        const quiz = await prisma.quiz.findUnique({
+            where: { id: Number(quizId) },
+            select: { isPublic: true, creatorId: true, organizationId: true },
+        });
+
+        if (!quiz) {
+            res.status(404).json({ message: 'Quiz not found' });
+            return;
+        }
+
+        const canUseQuiz =
+            quiz.isPublic ||
+            quiz.creatorId === Number(hostId) ||
+            (orgId !== undefined && quiz.organizationId === orgId);
+
+        if (!canUseQuiz) {
+            res.status(403).json({ message: 'You do not have permission to host this quiz' });
+            return;
+        }
+
         const { allowed, limit, current } = await checkLimit(
             orgId,
             'matches_hosted',
@@ -78,67 +99,83 @@ export const createMatch = async (req: Request, res: Response): Promise<void> =>
 export const getMatch = async (req: Request, res: Response): Promise<void> => {
     try {
         const id = req.params.id as string;
+        const userId = req.userId;
+        const orgId = req.organizationId;
 
-        // Try finding by internal ID first
-        let match = null;
-        if (!isNaN(Number(id))) {
-            match = await prisma.match.findUnique({
-                where: { id: Number(id) },
+        // IMPORTANT: match lobby uses a 6-digit numeric PIN in the URL.
+        // If we treat it as a numeric match ID, we'll look up `id=123456` and 404.
+        // Prefer PIN when the identifier is exactly 6 digits.
+        const isPin = /^\d{6}$/.test(id);
+        const numericId = Number(id);
+        const isNumericId = !isPin && !isNaN(numericId);
+
+        if (!isNumericId && !isPin) {
+            res.status(400).json({ message: 'Invalid match identifier' });
+            return;
+        }
+
+        // Lightweight prefetch to determine caller's access level
+        const matchMeta = await prisma.match.findFirst({
+            where: isNumericId ? { id: numericId } : { pin: id },
+            select: { id: true, hostId: true, organizationId: true },
+        });
+
+        if (!matchMeta) {
+            res.status(404).json({ message: 'Match not found' });
+            return;
+        }
+
+        const isHostOrManager =
+            (userId !== undefined && matchMeta.hostId === Number(userId)) ||
+            (orgId !== undefined && matchMeta.organizationId === orgId);
+
+        if (isHostOrManager) {
+            // Host / org-member: full quiz data including answer keys
+            const match = await prisma.match.findUnique({
+                where: { id: matchMeta.id },
+                include: {
+                    quiz: {
+                        include: {
+                            questions: { include: { media: true, options: true } },
+                            category: { select: { id: true, name: true } },
+                        },
+                    },
+                    host: { select: { id: true, username: true } },
+                    participants: { include: { user: { select: { id: true, username: true } } } },
+                    matchResults: true,
+                },
+            });
+            res.status(200).json(match);
+        } else {
+            // Participant / anonymous: answer data stripped from questions
+            const match = await prisma.match.findUnique({
+                where: { id: matchMeta.id },
                 include: {
                     quiz: {
                         include: {
                             questions: {
-                                include: {
+                                select: {
+                                    id: true,
+                                    text: true,
+                                    type: true,
+                                    quizId: true,
+                                    createdAt: true,
+                                    updatedAt: true,
+                                    // `data` intentionally omitted (correctAnswer, coordinates)
                                     media: true,
-                                    options: true,
+                                    options: { select: { id: true, text: true } },
                                 },
                             },
-                            category: {
-                                select: { id: true, name: true },
-                            },
+                            category: { select: { id: true, name: true } },
                         },
                     },
                     host: { select: { id: true, username: true } },
-                    participants: {
-                        include: {
-                            user: { select: { id: true, username: true } },
-                        },
-                    },
+                    participants: { include: { user: { select: { id: true, username: true } } } },
                     matchResults: true,
                 },
             });
+            res.status(200).json(match);
         }
-
-        // If not found by ID, try finding by 6-digit PIN
-        if (!match && id.length === 6) {
-            match = await prisma.match.findUnique({
-                where: { pin: id },
-                include: {
-                    quiz: {
-                        include: {
-                            questions: {
-                                include: {
-                                    media: true,
-                                    options: true,
-                                },
-                            },
-                            category: {
-                                select: { id: true, name: true },
-                            },
-                        },
-                    },
-                    host: { select: { id: true, username: true } },
-                    participants: {
-                        include: {
-                            user: { select: { id: true, username: true } },
-                        },
-                    },
-                    matchResults: true,
-                },
-            });
-        }
-
-        res.status(200).json(match);
     } catch (err) {
         res.status(500).json(err);
     }
@@ -147,6 +184,8 @@ export const getMatch = async (req: Request, res: Response): Promise<void> => {
 export const updateMatch = async (req: Request, res: Response): Promise<void> => {
     try {
         const idOrPin = req.params.id as string;
+        const userId = req.userId;
+        const orgId = req.organizationId ?? null;
         const data = req.body as UpdateMatchBody;
 
         // Resolve internal ID from PIN if needed
@@ -163,6 +202,27 @@ export const updateMatch = async (req: Request, res: Response): Promise<void> =>
             matchId = matchRecord.id;
         } else {
             matchId = Number(idOrPin);
+        }
+
+        // Fetch match to verify ownership before updating
+        const existing = await prisma.match.findUnique({
+            where: { id: matchId },
+            select: { hostId: true, organizationId: true },
+        });
+
+        if (!existing) {
+            res.status(404).json({ message: 'Match not found' });
+            return;
+        }
+
+        if (existing.hostId !== Number(userId)) {
+            res.status(403).json({ message: 'Not authorized to update this match' });
+            return;
+        }
+
+        if (existing.organizationId !== orgId) {
+            res.status(403).json({ message: 'Not authorized to update this match' });
+            return;
         }
 
         const match = await prisma.match.update({

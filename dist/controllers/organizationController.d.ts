@@ -1,0 +1,10 @@
+import { Request, Response } from 'express';
+export declare const createOrg: (req: Request, res: Response) => Promise<void>;
+export declare const getOrgs: (req: Request, res: Response) => Promise<void>;
+export declare const getOrg: (req: Request, res: Response) => Promise<void>;
+export declare const updateOrg: (req: Request, res: Response) => Promise<void>;
+export declare const addOrgMember: (req: Request, res: Response) => Promise<void>;
+export declare const removeOrgMember: (req: Request, res: Response) => Promise<void>;
+export declare const updateOrgMemberRole: (req: Request, res: Response) => Promise<void>;
+export declare const searchOrgUsers: (req: Request, res: Response) => Promise<void>;
+export declare const getOrgFeatures: (req: Request, res: Response) => Promise<void>;
