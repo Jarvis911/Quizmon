@@ -11,6 +11,35 @@ const QUIZ_MANAGER_ROLES: OrganizationRole[] = [
     OrganizationRole.TEACHER,
 ];
 
+type QuizWithId = { id: number };
+type QuizRatingStats = { ratingAverage: number; ratingCount: number };
+
+export const attachRatingStats = async <T extends QuizWithId>(quizzes: T[]): Promise<(T & QuizRatingStats)[]> => {
+    if (!quizzes.length) return quizzes.map(q => ({ ...q, ratingAverage: 0, ratingCount: 0 }));
+
+    const quizIds = quizzes.map(q => q.id);
+    const grouped = await prisma.quizRating.groupBy({
+        by: ['quizId'],
+        where: { quizId: { in: quizIds } },
+        _avg: { rating: true },
+        _count: { _all: true },
+    });
+
+    const statsByQuizId = new Map<number, QuizRatingStats>();
+    for (const g of grouped) {
+        statsByQuizId.set(g.quizId, {
+            // Prisma can return avg as Decimal-like; coerce for frontend.
+            ratingAverage: Number(g._avg.rating ?? 0),
+            ratingCount: Number(g._count._all ?? 0),
+        });
+    }
+
+    return quizzes.map(q => {
+        const stats = statsByQuizId.get(q.id) ?? { ratingAverage: 0, ratingCount: 0 };
+        return { ...q, ...stats };
+    });
+};
+
 interface CreateQuizBody {
     title: string;
     description: string;
@@ -53,7 +82,8 @@ export const createQuiz = async (req: Request, res: Response): Promise<void> => 
                 isPublic: !!isPublic,
                 creatorId: Number(creatorId),
                 categoryId: Number(categoryId),
-                organizationId: req.organizationId ?? null,
+                // Personal by default. Org assignment is handled explicitly via `assignQuizToOrg`.
+                organizationId: null,
             },
             include: {
                 creator: {
@@ -101,7 +131,8 @@ export const getQuiz = async (req: Request, res: Response): Promise<void> => {
             },
         });
 
-        res.status(200).json(data);
+        const enriched = await attachRatingStats(data);
+        res.status(200).json(enriched);
     } catch (err) {
         const error = err as Error;
         res.status(400).json({ message: error.message });
@@ -128,7 +159,8 @@ export const exploreQuizzes = async (req: Request, res: Response): Promise<void>
             },
         });
 
-        res.status(200).json(data);
+        const enriched = await attachRatingStats(data);
+        res.status(200).json(enriched);
     } catch (err) {
         const error = err as Error;
         res.status(400).json({ message: error.message });
@@ -446,7 +478,8 @@ export const getOrgQuizzes = async (req: Request, res: Response): Promise<void> 
             lockExpiresAt: q.lockExpiresAt && q.lockExpiresAt > now ? q.lockExpiresAt : null,
         }));
 
-        res.status(200).json(cleaned);
+        const enriched = await attachRatingStats(cleaned);
+        res.status(200).json(enriched);
     } catch (err) {
         const error = err as Error;
         res.status(400).json({ message: error.message });
@@ -780,7 +813,8 @@ export const getAssignableQuizzes = async (req: Request, res: Response): Promise
             }
         });
 
-        res.status(200).json(data);
+        const enriched = await attachRatingStats(data);
+        res.status(200).json(enriched);
     } catch (err) {
         const error = err as Error;
         res.status(400).json({ message: error.message });

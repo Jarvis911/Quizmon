@@ -87,6 +87,7 @@ describe('Quiz Routes', () => {
         it('should get all quizzes for user', async () => {
             const mockQuizzes = [{ id: 1, title: 'Math Quiz' }];
             prismaMock.quiz.findMany.mockResolvedValue(mockQuizzes as any);
+            prismaMock.quizRating.groupBy.mockResolvedValue([] as any);
 
             const response = await request(app).get('/quiz');
 

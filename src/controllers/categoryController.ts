@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../prismaClient.js';
+import { attachRatingStats } from './quizController.js';
 
 export const createCategory = async (req: Request, res: Response): Promise<void> => {
     const { name } = req.body as { name: string };
@@ -46,7 +47,8 @@ export const getQuizByCate = async (req: Request, res: Response): Promise<void> 
             },
         });
 
-        res.status(200).json(quizzes);
+        const enriched = await attachRatingStats(quizzes);
+        res.status(200).json(enriched);
     } catch (err) {
         const error = err as Error;
         res.status(400).json({ message: error.message });

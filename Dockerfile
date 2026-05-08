@@ -21,5 +21,5 @@ RUN npm run build
 # Expose
 EXPOSE 3000
 
-# Command: sync schema then start the server
-CMD ["sh", "-c", "npx prisma db push && node dist/server.js"]
+# Command: apply migrations then start the server
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
