@@ -49,16 +49,14 @@ export const handleAgentChat = (io, socket) => {
                     text: message
                 }
             });
-            // 4. Call AI service with current history (Gemini will append the user message internally often, but here we pass history)
-            // Note: Gemini's processAgentChat expects history WITHOUT the latest message which is passed as second argument
-            const quizUpdate = await processAgentChat(history, message);
+            // 4. Call AI service with current history
+            const agentResponse = await processAgentChat(history, message);
             // 5. Save Model Response to DB
-            const modelMsgText = JSON.stringify(quizUpdate);
             await prisma.agentChatMessage.create({
                 data: {
                     sessionId: sessionId,
                     role: 'model',
-                    text: modelMsgText
+                    text: JSON.stringify(agentResponse)
                 }
             });
             // 6. Update session updatedAt
@@ -67,7 +65,7 @@ export const handleAgentChat = (io, socket) => {
                 data: { updatedAt: new Date() }
             });
             // 7. Emit update to the client with sessionId
-            socket.emit('agentUpdate', { ...quizUpdate, sessionId });
+            socket.emit('agentUpdate', { ...agentResponse, sessionId });
         }
         catch (error) {
             console.error('[Agent Chat Error]:', error);

@@ -7,6 +7,8 @@ interface ScoreResult {
         longitude?: number;
     };
 }
+export type TypeAnswerVerdict = 'correct' | 'near' | 'wrong';
+export declare function getTypeAnswerVerdict(correctAnswer: string | undefined | null, answer: string): TypeAnswerVerdict;
 /**
  * Check if an answer is correct and calculate the result.
  */

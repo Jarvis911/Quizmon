@@ -20,7 +20,42 @@ export declare const createCheckoutSession: (orgId: number, planId: number, bill
  * Fulfill a subscription after successful payment.
  * Called either by IPN callback or by frontend redirect.
  */
-export declare const fulfillSubscription: (orderId: string, orgId: number, planId: number, billingCycle?: BillingCycle, paymentMethod?: PaymentMethod, transactionId?: string) => Promise<any>;
+export declare const fulfillSubscription: (orderId: string, orgId: number, planId: number, billingCycle?: BillingCycle, paymentMethod?: PaymentMethod, transactionId?: string) => Promise<{
+    organization: {
+        name: string;
+    };
+    plan: {
+        features: {
+            id: number;
+            planId: number;
+            limit: number | null;
+            featureKey: import("@prisma/client").$Enums.FeatureKey;
+            enabled: boolean;
+        }[];
+    } & {
+        name: string;
+        id: number;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import("@prisma/client").$Enums.PlanType;
+        description: string | null;
+        priceMonthly: number;
+        priceYearly: number;
+        isActive: boolean;
+    };
+} & {
+    id: number;
+    createdAt: Date;
+    updatedAt: Date;
+    status: import("@prisma/client").$Enums.SubscriptionStatus;
+    billingCycle: import("@prisma/client").$Enums.BillingCycle;
+    currentPeriodStart: Date;
+    currentPeriodEnd: Date;
+    canceledAt: Date | null;
+    trialEndsAt: Date | null;
+    organizationId: number;
+    planId: number;
+}>;
 /**
  * Process an IPN callback from a payment gateway.
  * Verifies the callback signature and fulfills the subscription if successful.

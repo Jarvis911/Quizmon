@@ -1,5 +1,23 @@
 import { Request, Response } from 'express';
 export declare const createCheckout: (req: Request, res: Response) => Promise<void>;
+/**
+ * POST /subscriptions/fulfill
+ *
+ * Status-check endpoint used by the post-payment redirect page.
+ *
+ * SECURITY: This endpoint must NOT be a fulfillment authority. The actual
+ * subscription activation is performed by the gateway IPN handler
+ * (e.g. `handleMomoIPN`), which verifies a signed server-to-server callback.
+ *
+ * Therefore this endpoint:
+ *   - Accepts ONLY `orderId` / `sessionId` from the body. Any other field
+ *     (`orgId`, `planId`, `billingCycle`, `paymentMethod`) is ignored — those
+ *     are recovered from the persisted `Payment` record created at checkout.
+ *   - Requires the caller to be a member of the organization that owns the
+ *     payment (enforced via `req.organizationId` set by `orgMiddleware`).
+ *   - Reports the current persisted state (COMPLETED / PAY_PENDING / PAY_FAILED).
+ *     It never activates a plan on its own.
+ */
 export declare const fulfillCheckout: (req: Request, res: Response) => Promise<void>;
 /**
  * POST /subscriptions/momo-ipn

@@ -1,6 +1,36 @@
+import { OrganizationRole } from '@prisma/client';
 import { createQuestion as createQuestionService, updateQuestion as updateQuestionService, } from '../services/questionService.js';
 import { uploadMedia } from '../services/uploadMediaService.js';
 import prisma from '../prismaClient.js';
+const QUIZ_MANAGER_ROLES = [
+    OrganizationRole.OWNER,
+    OrganizationRole.ADMIN,
+    OrganizationRole.TEACHER,
+];
+/**
+ * Returns true when `userId` may create/edit questions inside `quizId`.
+ * Rules mirror the quiz-level edit policy:
+ *   - quiz creator always allowed
+ *   - org member with OWNER/ADMIN/TEACHER role allowed if quiz belongs to same org
+ */
+async function canEditQuiz(quizId, userId, orgId) {
+    const quiz = await prisma.quiz.findUnique({
+        where: { id: quizId },
+        select: { creatorId: true, organizationId: true },
+    });
+    if (!quiz)
+        return false;
+    if (quiz.creatorId === userId)
+        return true;
+    if (orgId !== undefined && quiz.organizationId === orgId) {
+        const membership = await prisma.organizationMember.findUnique({
+            where: { organizationId_userId: { organizationId: orgId, userId } },
+            select: { role: true },
+        });
+        return membership !== null && QUIZ_MANAGER_ROLES.includes(membership.role);
+    }
+    return false;
+}
 /** multipart/form-data sends `options` as a JSON string; `application/json` sends an array. */
 function parseQuestionOptionsFromBody(options) {
     if (options == null) {
@@ -18,18 +48,31 @@ function parseQuestionOptionsFromBody(options) {
 export const getRetrieveQuestion = async (req, res) => {
     const { id } = req.params;
     try {
-        const question = await prisma.question.findMany({
-            where: {
-                id: Number(id),
-            },
+        const question = await prisma.question.findUnique({
+            where: { id: Number(id) },
             include: {
                 media: true,
                 options: true,
                 quiz: {
-                    select: { id: true, title: true },
+                    select: { id: true, title: true, isPublic: true, creatorId: true, organizationId: true },
                 },
             },
         });
+        if (!question) {
+            res.status(404).json({ message: 'Question not found' });
+            return;
+        }
+        // Enforce the same access rule as GET /quiz/:id
+        const { isPublic, creatorId, organizationId } = question.quiz;
+        const userId = req.userId;
+        const orgId = req.organizationId;
+        const canRead = isPublic ||
+            (userId !== undefined && creatorId === Number(userId)) ||
+            (orgId !== undefined && organizationId === orgId);
+        if (!canRead) {
+            res.status(403).json({ message: 'You do not have permission to view this question' });
+            return;
+        }
         res.status(200).json(question);
     }
     catch (err) {
@@ -41,6 +84,10 @@ export const createButtonQuestion = async (req, res) => {
     const { quizId, text, options, videos, imageEffect, zoomX, zoomY } = req.body;
     const files = req.files;
     try {
+        if (!await canEditQuiz(parseInt(quizId), Number(req.userId), req.organizationId)) {
+            res.status(403).json({ message: 'You do not have permission to add questions to this quiz' });
+            return;
+        }
         const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect, zoomX ? parseFloat(zoomX) : undefined, zoomY ? parseFloat(zoomY) : undefined);
         const questionData = {
             quizId: parseInt(quizId),
@@ -63,6 +110,15 @@ export const updateButtonQuestion = async (req, res) => {
     const { id } = req.params;
     const files = req.files;
     try {
+        const existing = await prisma.question.findUnique({ where: { id: Number(id) }, select: { quizId: true } });
+        if (!existing) {
+            res.status(404).json({ message: 'Question not found' });
+            return;
+        }
+        if (!await canEditQuiz(existing.quizId, Number(req.userId), req.organizationId)) {
+            res.status(403).json({ message: 'You do not have permission to edit this question' });
+            return;
+        }
         const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect, zoomX ? parseFloat(zoomX) : undefined, zoomY ? parseFloat(zoomY) : undefined);
         const questionData = {
             quizId: parseInt(quizId),
@@ -85,6 +141,10 @@ export const createCheckboxQuestion = async (req, res) => {
     const { quizId, text, options, videos, imageEffect, zoomX, zoomY } = req.body;
     const files = req.files;
     try {
+        if (!await canEditQuiz(Number(quizId), Number(req.userId), req.organizationId)) {
+            res.status(403).json({ message: 'You do not have permission to add questions to this quiz' });
+            return;
+        }
         const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect, zoomX ? parseFloat(zoomX) : undefined, zoomY ? parseFloat(zoomY) : undefined);
         const questionData = {
             quizId: Number(quizId),
@@ -107,6 +167,15 @@ export const updateCheckboxQuestion = async (req, res) => {
     const { id } = req.params;
     const files = req.files;
     try {
+        const existing = await prisma.question.findUnique({ where: { id: Number(id) }, select: { quizId: true } });
+        if (!existing) {
+            res.status(404).json({ message: 'Question not found' });
+            return;
+        }
+        if (!await canEditQuiz(existing.quizId, Number(req.userId), req.organizationId)) {
+            res.status(403).json({ message: 'You do not have permission to edit this question' });
+            return;
+        }
         const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect, zoomX ? parseFloat(zoomX) : undefined, zoomY ? parseFloat(zoomY) : undefined);
         const questionData = {
             quizId: parseInt(quizId),
@@ -129,6 +198,10 @@ export const createReorderQuestion = async (req, res) => {
     const { quizId, text, options, videos, imageEffect, zoomX, zoomY } = req.body;
     const files = req.files;
     try {
+        if (!await canEditQuiz(parseInt(quizId), Number(req.userId), req.organizationId)) {
+            res.status(403).json({ message: 'You do not have permission to add questions to this quiz' });
+            return;
+        }
         const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect, zoomX ? parseFloat(zoomX) : undefined, zoomY ? parseFloat(zoomY) : undefined);
         const questionData = {
             quizId: parseInt(quizId),
@@ -151,6 +224,15 @@ export const updateReorderQuestion = async (req, res) => {
     const files = req.files;
     const { id } = req.params;
     try {
+        const existing = await prisma.question.findUnique({ where: { id: Number(id) }, select: { quizId: true } });
+        if (!existing) {
+            res.status(404).json({ message: 'Question not found' });
+            return;
+        }
+        if (!await canEditQuiz(existing.quizId, Number(req.userId), req.organizationId)) {
+            res.status(403).json({ message: 'You do not have permission to edit this question' });
+            return;
+        }
         const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect, zoomX ? parseFloat(zoomX) : undefined, zoomY ? parseFloat(zoomY) : undefined);
         const questionData = {
             quizId: parseInt(quizId),
@@ -173,6 +255,10 @@ export const createLocationQuestion = async (req, res) => {
     const { quizId, text, correctLatitude, correctLongitude, optionsData, videos, imageEffect, zoomX, zoomY } = req.body;
     const files = req.files;
     try {
+        if (!await canEditQuiz(parseInt(quizId), Number(req.userId), req.organizationId)) {
+            res.status(403).json({ message: 'You do not have permission to add questions to this quiz' });
+            return;
+        }
         const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect, zoomX ? parseFloat(zoomX) : undefined, zoomY ? parseFloat(zoomY) : undefined);
         let parsedOptionsData = {};
         try {
@@ -206,6 +292,15 @@ export const updateLocationQuestion = async (req, res) => {
     const files = req.files;
     const { id } = req.params;
     try {
+        const existing = await prisma.question.findUnique({ where: { id: Number(id) }, select: { quizId: true } });
+        if (!existing) {
+            res.status(404).json({ message: 'Question not found' });
+            return;
+        }
+        if (!await canEditQuiz(existing.quizId, Number(req.userId), req.organizationId)) {
+            res.status(403).json({ message: 'You do not have permission to edit this question' });
+            return;
+        }
         const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect, zoomX ? parseFloat(zoomX) : undefined, zoomY ? parseFloat(zoomY) : undefined);
         let parsedOptionsData = {};
         try {
@@ -239,6 +334,10 @@ export const createTypeAnswerQuestion = async (req, res) => {
     const { quizId, text, correctAnswer, videos, imageEffect, zoomX, zoomY } = req.body;
     const files = req.files;
     try {
+        if (!await canEditQuiz(parseInt(quizId), Number(req.userId), req.organizationId)) {
+            res.status(403).json({ message: 'You do not have permission to add questions to this quiz' });
+            return;
+        }
         const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect, zoomX ? parseFloat(zoomX) : undefined, zoomY ? parseFloat(zoomY) : undefined);
         const questionData = {
             quizId: parseInt(quizId),
@@ -261,6 +360,15 @@ export const updateTypeAnswerQuestion = async (req, res) => {
     const files = req.files;
     const { id } = req.params;
     try {
+        const existing = await prisma.question.findUnique({ where: { id: Number(id) }, select: { quizId: true } });
+        if (!existing) {
+            res.status(404).json({ message: 'Question not found' });
+            return;
+        }
+        if (!await canEditQuiz(existing.quizId, Number(req.userId), req.organizationId)) {
+            res.status(403).json({ message: 'You do not have permission to edit this question' });
+            return;
+        }
         const questionMedia = await uploadMedia(files ? files : null, videos ? JSON.parse(videos) : null, imageEffect, zoomX ? parseFloat(zoomX) : undefined, zoomY ? parseFloat(zoomY) : undefined);
         const questionData = {
             quizId: parseInt(quizId),
@@ -290,13 +398,12 @@ export const deleteQuestion = async (req, res) => {
             res.status(404).json({ message: 'Question not found' });
             return;
         }
-        // Ownership check
+        // Ownership check: creator always allowed; org members need OWNER/ADMIN/TEACHER role
         if (question.quiz.creatorId !== userId) {
-            // Check if user is in the same organization as the quiz
-            if (req.organizationId && question.quiz.organizationId === req.organizationId) {
-                // Allow deletion by same org
-            }
-            else {
+            const isManager = req.organizationId &&
+                question.quiz.organizationId === req.organizationId &&
+                await canEditQuiz(question.quizId, userId, req.organizationId);
+            if (!isManager) {
                 res.status(403).json({ message: 'You do not have permission to delete this question' });
                 return;
             }

@@ -4,6 +4,8 @@ import { SubscriptionStatus, BillingCycle, PaymentMethod, PaymentStatus } from '
 import { createCheckoutSession, fulfillSubscription, handlePaymentCallback, getAvailableGateways } from '../services/paymentService.js';
 import { getUsage } from '../services/usageService.js';
 import { getOrgFeatures } from '../services/featureGateService.js';
+import { emailService } from '../services/emailService.js';
+import { subscriptionActivatedEmail, subscriptionCanceledEmail } from '../services/emailTemplates.js';
 
 // ─── Checkout Flow ──────────────────────────────────────────────────
 
@@ -358,8 +360,21 @@ export const createSubscription = async (req: Request, res: Response): Promise<v
             },
             include: {
                 plan: { include: { features: true } },
+                organization: { select: { name: true } },
             },
         });
+
+        if (subscription.organization?.name) {
+            const { subject, html } = subscriptionActivatedEmail({
+                orgName: subscription.organization.name,
+                planName: subscription.plan.name,
+                billingCycle: subscription.billingCycle,
+                currentPeriodEnd: subscription.currentPeriodEnd,
+            });
+            void emailService.sendToOrgBillingContacts(orgId, subject, html).catch((e) =>
+                console.error('[createSubscription] Email failed:', e)
+            );
+        }
 
         res.status(201).json(subscription);
     } catch (err) {
@@ -381,6 +396,10 @@ export const cancelSubscription = async (req: Request, res: Response): Promise<v
 
         const subscription = await prisma.subscription.findFirst({
             where: { organizationId: orgId, status: SubscriptionStatus.ACTIVE },
+            include: {
+                plan: true,
+                organization: { select: { name: true } },
+            },
         });
 
         if (!subscription) {
@@ -388,14 +407,27 @@ export const cancelSubscription = async (req: Request, res: Response): Promise<v
             return;
         }
 
+        const accessUntil = subscription.currentPeriodEnd;
+
         const canceled = await prisma.subscription.update({
             where: { id: subscription.id },
             data: {
                 status: SubscriptionStatus.CANCELED,
                 canceledAt: new Date(),
             },
-            include: { plan: true },
+            include: { plan: true, organization: { select: { name: true } } },
         });
+
+        if (canceled.organization?.name && canceled.plan) {
+            const { subject, html } = subscriptionCanceledEmail({
+                orgName: canceled.organization.name,
+                planName: canceled.plan.name,
+                accessUntil,
+            });
+            void emailService.sendToOrgBillingContacts(orgId, subject, html).catch((e) =>
+                console.error('[cancelSubscription] Email failed:', e)
+            );
+        }
 
         res.status(200).json(canceled);
     } catch (err) {

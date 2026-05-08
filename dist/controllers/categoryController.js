@@ -1,4 +1,5 @@
 import prisma from '../prismaClient.js';
+import { attachRatingStats } from './quizController.js';
 export const createCategory = async (req, res) => {
     const { name } = req.body;
     try {
@@ -39,7 +40,8 @@ export const getQuizByCate = async (req, res) => {
                 },
             },
         });
-        res.status(200).json(quizzes);
+        const enriched = await attachRatingStats(quizzes);
+        res.status(200).json(enriched);
     }
     catch (err) {
         const error = err;

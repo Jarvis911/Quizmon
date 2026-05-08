@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import prisma from '../prismaClient.js';
 import { emailService } from '../services/emailService.js';
+import { homeworkAssignedEmail } from '../services/emailTemplates.js';
+import { FRONTEND_URL } from '../config/index.js';
 import { notificationService } from '../services/notificationService.js';
 import { checkAnswer } from '../socket/scoreCalculator.js';
 import { Question } from '../socket/types.js';
@@ -60,16 +62,15 @@ export const createHomeworkMatch = async (req: Request, res: Response): Promise<
 
             // Send Emails in parallel
             const emailPromises = students
-                .filter(s => s.user.email) // Ensure user has an email
-                .map(student =>
-                    emailService.sendEmail(
-                        student.user.email,
-                        "Bài tập mới trên Quizmon!",
-                        `<h2>Chào ${student.user.username || 'bạn'},</h2>
-                         <p>Giáo viên vừa giao một bài tập mới: <strong>${match.quiz.title}</strong>.</p>
-                         <p>Hãy vào lớp học để hoàn thành ngay nhé!</p>`
-                    )
-                );
+                .filter(s => s.user.email)
+                .map((student) => {
+                    const { subject, html } = homeworkAssignedEmail({
+                        studentName: student.user.username || 'bạn',
+                        quizTitle: match.quiz.title,
+                        classroomUrl: `${FRONTEND_URL}/classrooms/${classroomId}`,
+                    });
+                    return emailService.sendEmail(student.user.email!, subject, html);
+                });
 
             // Do not await to avoid blocking the response
             Promise.all(emailPromises).catch(console.error);

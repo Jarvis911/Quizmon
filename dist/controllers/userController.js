@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { emailService } from '../services/emailService.js';
+import { passwordChangedEmail } from '../services/emailTemplates.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 export const getUserStats = async (req, res) => {
@@ -156,6 +158,14 @@ export const updateProfile = async (req, res) => {
                 updatedAt: true
             }
         });
+        if (newPassword && updatedUser.email) {
+            const changedAt = new Date();
+            const { subject, html } = passwordChangedEmail({
+                displayName: updatedUser.username || updatedUser.email,
+                changedAt,
+            });
+            void emailService.sendEmail(updatedUser.email, subject, html).catch((e) => console.error('[updateProfile] Password change email failed:', e));
+        }
         res.status(200).json({
             message: 'Cập nhật trang cá nhân thành công',
             user: updatedUser

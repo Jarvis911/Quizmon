@@ -2,7 +2,16 @@
  * Track (increment) a usage metric for an organization in the current billing period.
  * Uses upsert to create or increment the counter atomically.
  */
-export declare const trackUsage: (orgId: number, key: string, increment?: number) => Promise<any>;
+export declare const trackUsage: (orgId: number, key: string, increment?: number) => Promise<{
+    id: number;
+    createdAt: Date;
+    updatedAt: Date;
+    organizationId: number;
+    key: string;
+    value: number;
+    periodStart: Date;
+    periodEnd: Date;
+}>;
 /**
  * Get current period usage for an organization.
  * If key is provided, returns a single metric; otherwise returns all metrics.

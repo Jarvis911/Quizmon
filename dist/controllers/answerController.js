@@ -1,16 +1,78 @@
 import prisma from '../prismaClient.js';
+import { checkAnswer, calculatePoints } from '../socket/scoreCalculator.js';
 // Submit answer
 export const createAnswer = async (req, res) => {
     try {
         const { matchId } = req.params;
-        const { questionId, participantId, answerData, isCorrect, score, timeTaken } = req.body;
+        const userId = req.userId;
+        const { questionId, participantId, answerData, timeTaken } = req.body;
+        // Verify participant belongs to this match and to the calling user
+        const participant = await prisma.matchParticipant.findFirst({
+            where: { id: Number(participantId), matchId: Number(matchId) },
+            select: { userId: true },
+        });
+        if (!participant) {
+            res.status(404).json({ message: 'Participant not found in this match' });
+            return;
+        }
+        // Authenticated users may only submit for their own participant slot
+        if (participant.userId !== null && participant.userId !== Number(userId)) {
+            res.status(403).json({ message: 'Not authorized to submit answer for this participant' });
+            return;
+        }
+        // Fetch question with options for server-side correctness check
+        const question = await prisma.question.findUnique({
+            where: { id: Number(questionId) },
+            include: { options: true },
+        });
+        if (!question) {
+            res.status(404).json({ message: 'Question not found' });
+            return;
+        }
+        // Map Prisma question to the socket Question shape used by checkAnswer
+        const questionForCheck = {
+            id: question.id,
+            type: question.type,
+            options: question.options.map((o) => ({
+                id: o.id,
+                text: o.text,
+                isCorrect: o.isCorrect ?? undefined,
+                order: o.order ?? undefined,
+            })),
+            data: question.data,
+        };
+        const result = checkAnswer(questionForCheck, answerData);
+        const isCorrect = result.isCorrect;
+        // Compute score server-side — never trust client-supplied value
+        let score = 0;
+        if (isCorrect) {
+            if (result.score !== undefined) {
+                // LOCATION: score comes from distance-band calculation
+                score = result.score;
+            }
+            else {
+                // Fetch match timePerQuestion for time-based scoring
+                const match = await prisma.match.findUnique({
+                    where: { id: Number(matchId) },
+                    select: { timePerQuestion: true },
+                });
+                if (match?.timePerQuestion && timeTaken != null) {
+                    const timeTakenSec = Math.max(0, Number(timeTaken)) / 1000;
+                    const submitRemainingTime = Math.max(0, match.timePerQuestion - timeTakenSec);
+                    score = calculatePoints(submitRemainingTime, match.timePerQuestion);
+                }
+                else {
+                    score = 1000;
+                }
+            }
+        }
         const answer = await prisma.matchAnswer.create({
             data: {
                 questionId: Number(questionId),
                 participantId: Number(participantId),
                 answerData,
                 isCorrect,
-                score: Number(score),
+                score,
                 timeTaken: timeTaken ? Number(timeTaken) : null,
             },
             include: {
@@ -28,6 +90,8 @@ export const createAnswer = async (req, res) => {
 export const getMatchAnswers = async (req, res) => {
     try {
         const { matchId } = req.params;
+        const userId = req.userId;
+        const orgId = req.organizationId ?? null;
         const match = await prisma.match.findUnique({
             where: { id: Number(matchId) },
             include: {
@@ -51,6 +115,13 @@ export const getMatchAnswers = async (req, res) => {
         });
         if (!match) {
             res.status(404).json({ message: 'Match not found' });
+            return;
+        }
+        // Only the host or a member of the match's organisation may read the full report
+        const isHost = match.hostId === Number(userId);
+        const isSameOrg = orgId !== null && match.organizationId === orgId;
+        if (!isHost && !isSameOrg) {
+            res.status(403).json({ message: 'Not authorized to view this match report' });
             return;
         }
         // Calculate summary statistics

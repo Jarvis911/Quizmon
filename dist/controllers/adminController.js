@@ -1,5 +1,7 @@
+import { FeatureKey } from '@prisma/client';
 import prisma from '../prismaClient.js';
 import { deleteQuizCascade } from '../services/deleteQuizCascade.js';
+const ALL_FEATURE_KEYS = Object.values(FeatureKey);
 export const getDashboardStats = async (req, res) => {
     try {
         // Overall stats
@@ -181,6 +183,7 @@ export const getAIConfigOptions = async (req, res) => {
             features: ['QUIZ_GENERATION', 'QUESTION_REGENERATION', 'AGENT_CHAT', 'IMAGE_GENERATION', 'STUDENT_LIST_OCR'],
             models: [
                 'gemini-2.5-flash',
+                'gemini-2.5-flash-image',
                 'gemini-2.5-flash-lite',
                 'gemini-2.0-flash',
                 'gemini-2.0-flash-lite',
@@ -189,6 +192,154 @@ export const getAIConfigOptions = async (req, res) => {
                 'gemini-1.5-pro',
             ],
         });
+    }
+    catch (e) {
+        res.status(500).json({ message: e.message });
+    }
+};
+/** GET /admin/plans/keys — enum values for subscription plan features (for admin UI). */
+export const getPlanFeatureKeys = async (_req, res) => {
+    try {
+        res.json({ keys: ALL_FEATURE_KEYS });
+    }
+    catch (e) {
+        res.status(500).json({ message: e.message });
+    }
+};
+/** GET /admin/plans — all plans including inactive, with features. */
+export const getAdminPlans = async (_req, res) => {
+    try {
+        const plans = await prisma.plan.findMany({
+            include: { features: true },
+            orderBy: { priceMonthly: 'asc' },
+        });
+        res.json(plans);
+    }
+    catch (e) {
+        res.status(500).json({ message: e.message });
+    }
+};
+/** PUT /admin/plans/:id — update display/pricing/active flag (`type` is fixed per row). */
+export const updatePlan = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        if (Number.isNaN(id)) {
+            res.status(400).json({ message: 'Invalid plan id' });
+            return;
+        }
+        const { name, description, priceMonthly, priceYearly, isActive } = req.body;
+        const existing = await prisma.plan.findUnique({ where: { id } });
+        if (!existing) {
+            res.status(404).json({ message: 'Plan not found' });
+            return;
+        }
+        const data = {};
+        if (typeof name === 'string') {
+            const trimmed = name.trim();
+            if (!trimmed) {
+                res.status(400).json({ message: 'name cannot be empty' });
+                return;
+            }
+            data.name = trimmed;
+        }
+        if (description !== undefined) {
+            data.description = description === null || description === '' ? null : String(description);
+        }
+        if (priceMonthly !== undefined) {
+            const n = Number(priceMonthly);
+            if (Number.isNaN(n) || n < 0) {
+                res.status(400).json({ message: 'priceMonthly must be a non-negative number' });
+                return;
+            }
+            data.priceMonthly = n;
+        }
+        if (priceYearly !== undefined) {
+            const n = Number(priceYearly);
+            if (Number.isNaN(n) || n < 0) {
+                res.status(400).json({ message: 'priceYearly must be a non-negative number' });
+                return;
+            }
+            data.priceYearly = n;
+        }
+        if (typeof isActive === 'boolean') {
+            data.isActive = isActive;
+        }
+        if (Object.keys(data).length === 0) {
+            res.status(400).json({ message: 'No valid fields to update' });
+            return;
+        }
+        const updated = await prisma.plan.update({
+            where: { id },
+            data,
+            include: { features: true },
+        });
+        res.json(updated);
+    }
+    catch (e) {
+        res.status(500).json({ message: e.message });
+    }
+};
+/** PUT /admin/plans/:id/features — replace all feature rows for the plan. */
+export const replacePlanFeatures = async (req, res) => {
+    try {
+        const planId = Number(req.params.id);
+        if (Number.isNaN(planId)) {
+            res.status(400).json({ message: 'Invalid plan id' });
+            return;
+        }
+        const plan = await prisma.plan.findUnique({ where: { id: planId } });
+        if (!plan) {
+            res.status(404).json({ message: 'Plan not found' });
+            return;
+        }
+        const body = req.body;
+        if (!Array.isArray(body.features)) {
+            res.status(400).json({ message: 'features must be an array' });
+            return;
+        }
+        const seen = new Set();
+        const rows = [];
+        for (const row of body.features) {
+            if (!row || typeof row.featureKey !== 'string') {
+                res.status(400).json({ message: 'Each feature must include featureKey' });
+                return;
+            }
+            if (!ALL_FEATURE_KEYS.includes(row.featureKey)) {
+                res.status(400).json({ message: `Unknown featureKey: ${row.featureKey}` });
+                return;
+            }
+            if (seen.has(row.featureKey)) {
+                res.status(400).json({ message: `Duplicate featureKey: ${row.featureKey}` });
+                return;
+            }
+            seen.add(row.featureKey);
+            let limit = null;
+            if (row.limit !== undefined && row.limit !== null) {
+                const n = typeof row.limit === 'number' ? row.limit : Number(row.limit);
+                if (Number.isNaN(n) || n < 0) {
+                    res.status(400).json({ message: `Invalid limit for ${row.featureKey}` });
+                    return;
+                }
+                limit = n;
+            }
+            rows.push({
+                planId,
+                featureKey: row.featureKey,
+                limit,
+                enabled: Boolean(row.enabled),
+            });
+        }
+        await prisma.$transaction(async (tx) => {
+            await tx.planFeature.deleteMany({ where: { planId } });
+            if (rows.length > 0) {
+                await tx.planFeature.createMany({ data: rows });
+            }
+        });
+        const updated = await prisma.plan.findUnique({
+            where: { id: planId },
+            include: { features: true },
+        });
+        res.json(updated);
     }
     catch (e) {
         res.status(500).json({ message: e.message });

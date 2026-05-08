@@ -60,8 +60,9 @@ export const createQuestion = async (questionData) => {
                 },
             },
         });
-        // Send notification
-        await notificationService.createNotification(question.quiz.creatorId, `Bạn đã thêm một câu hỏi mới vào bộ: ${question.quiz.title}`, 'QUESTION_CREATED', `/library/${question.quiz.id}`);
+        if (!questionData.skipQuestionNotification) {
+            await notificationService.createNotification(question.quiz.creatorId, `Bạn đã thêm một câu hỏi mới vào bộ: ${question.quiz.title}`, 'QUESTION_CREATED', `/library/${question.quiz.id}`);
+        }
         return question;
     }
     catch (err) {

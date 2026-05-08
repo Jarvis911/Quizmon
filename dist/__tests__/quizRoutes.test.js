@@ -71,6 +71,7 @@ describe('Quiz Routes', () => {
         it('should get all quizzes for user', async () => {
             const mockQuizzes = [{ id: 1, title: 'Math Quiz' }];
             prismaMock.quiz.findMany.mockResolvedValue(mockQuizzes);
+            prismaMock.quizRating.groupBy.mockResolvedValue([]);
             const response = await request(app).get('/quiz');
             expect(response.status).toBe(200);
             expect(Array.isArray(response.body)).toBe(true);
@@ -161,6 +162,224 @@ describe('Quiz Routes', () => {
             expect(response.status).toBe(200);
             expect(response.body.count).toBe(2);
             expect(response.body.average).toBe(4);
+        });
+    });
+    // ─── Checkout Lock ────────────────────────────────────────────────────────
+    describe('POST /quiz/:id/checkout', () => {
+        it('should acquire lock when quiz has no lock', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, organizationId: 1,
+                lockedById: null, lockedAt: null, lockExpiresAt: null,
+                lockedBy: null,
+            });
+            prismaMock.quiz.update.mockResolvedValue({ id: 1 });
+            const res = await request(app).post('/quiz/1/checkout');
+            expect(res.status).toBe(200);
+            expect(res.body.locked).toBe(true);
+            expect(prismaMock.quiz.update).toHaveBeenCalledWith(expect.objectContaining({
+                where: { id: 1 },
+                data: expect.objectContaining({ lockedById: 1 }),
+            }));
+        });
+        it('should acquire lock when existing lock has expired', async () => {
+            const expiredAt = new Date(Date.now() - 1000); // 1 second in the past
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, organizationId: 1,
+                lockedById: 2,
+                lockedAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
+                lockExpiresAt: expiredAt,
+                lockedBy: { id: 2, username: 'other_user' },
+            });
+            prismaMock.quiz.update.mockResolvedValue({ id: 1 });
+            const res = await request(app).post('/quiz/1/checkout');
+            expect(res.status).toBe(200);
+            expect(res.body.locked).toBe(true);
+            expect(prismaMock.quiz.update).toHaveBeenCalledWith(expect.objectContaining({
+                data: expect.objectContaining({ lockedById: 1 }),
+            }));
+        });
+        it('should return 423 when quiz is actively locked by another user', async () => {
+            const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, organizationId: 1,
+                lockedById: 2,
+                lockedAt: new Date(),
+                lockExpiresAt: expiresAt,
+                lockedBy: { id: 2, username: 'other_user' },
+            });
+            const res = await request(app).post('/quiz/1/checkout');
+            expect(res.status).toBe(423);
+            expect(res.body.lockedBy).toBe('other_user');
+            expect(prismaMock.quiz.update).not.toHaveBeenCalled();
+        });
+        it('should renew lock (extend expiry) when called by the current lock holder', async () => {
+            const existingExpiry = new Date(Date.now() + 30 * 60 * 1000); // 30 min left
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, organizationId: 1,
+                lockedById: 1, // same user (userId=1 from mock middleware)
+                lockedAt: new Date(),
+                lockExpiresAt: existingExpiry,
+                lockedBy: { id: 1, username: 'current_user' },
+            });
+            prismaMock.quiz.update.mockResolvedValue({ id: 1 });
+            const res = await request(app).post('/quiz/1/checkout');
+            expect(res.status).toBe(200);
+            expect(res.body.locked).toBe(true);
+            // Lock should be renewed (new expiry will be ~2h from now, > existingExpiry)
+            const renewedExpiry = new Date(res.body.lockExpiresAt);
+            expect(renewedExpiry.getTime()).toBeGreaterThan(existingExpiry.getTime());
+        });
+        it('should return 200 without locking for personal quizzes (no org)', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, organizationId: null,
+                lockedById: null, lockedAt: null, lockExpiresAt: null,
+                lockedBy: null,
+            });
+            const res = await request(app).post('/quiz/1/checkout');
+            expect(res.status).toBe(200);
+            expect(res.body.locked).toBe(false);
+            expect(prismaMock.quiz.update).not.toHaveBeenCalled();
+        });
+        it('should return 404 when quiz does not exist', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue(null);
+            const res = await request(app).post('/quiz/999/checkout');
+            expect(res.status).toBe(404);
+        });
+    });
+    describe('POST /quiz/:id/checkin', () => {
+        it('should release lock when called by the lock holder', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, organizationId: 1,
+                lockedById: 1, // same as userId in mock (=1)
+            });
+            prismaMock.quiz.update.mockResolvedValue({ id: 1 });
+            const res = await request(app).post('/quiz/1/checkin');
+            expect(res.status).toBe(200);
+            expect(prismaMock.quiz.update).toHaveBeenCalledWith(expect.objectContaining({
+                where: { id: 1 },
+                data: { lockedById: null, lockedAt: null, lockExpiresAt: null },
+            }));
+        });
+        it('should allow OWNER/ADMIN to release another user\'s lock', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, organizationId: 1,
+                lockedById: 2, // locked by user 2, but our user (1) is ADMIN
+            });
+            prismaMock.organizationMember.findFirst.mockResolvedValue({
+                id: 1, organizationId: 1, userId: 1, role: 'ADMIN',
+            });
+            prismaMock.quiz.update.mockResolvedValue({ id: 1 });
+            const res = await request(app).post('/quiz/1/checkin');
+            expect(res.status).toBe(200);
+            expect(prismaMock.quiz.update).toHaveBeenCalledWith(expect.objectContaining({
+                data: { lockedById: null, lockedAt: null, lockExpiresAt: null },
+            }));
+        });
+        it('should return 403 when non-holder without admin role tries to release', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, organizationId: 1,
+                lockedById: 2, // locked by user 2, our user (1) is not ADMIN
+            });
+            prismaMock.organizationMember.findFirst.mockResolvedValue(null);
+            const res = await request(app).post('/quiz/1/checkin');
+            expect(res.status).toBe(403);
+            expect(prismaMock.quiz.update).not.toHaveBeenCalled();
+        });
+        it('should return 404 when quiz does not exist', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue(null);
+            const res = await request(app).post('/quiz/999/checkin');
+            expect(res.status).toBe(404);
+        });
+    });
+    describe('POST /quiz/:id/force-checkin', () => {
+        it('should force-release any lock for OWNER', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, organizationId: 1,
+            });
+            prismaMock.organizationMember.findFirst.mockResolvedValue({
+                id: 1, organizationId: 1, userId: 1, role: 'OWNER',
+            });
+            prismaMock.quiz.update.mockResolvedValue({ id: 1 });
+            const res = await request(app).post('/quiz/1/force-checkin');
+            expect(res.status).toBe(200);
+            expect(prismaMock.quiz.update).toHaveBeenCalledWith(expect.objectContaining({
+                where: { id: 1 },
+                data: { lockedById: null, lockedAt: null, lockExpiresAt: null },
+            }));
+        });
+        it('should force-release any lock for ADMIN', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, organizationId: 1,
+            });
+            prismaMock.organizationMember.findFirst.mockResolvedValue({
+                id: 1, organizationId: 1, userId: 1, role: 'ADMIN',
+            });
+            prismaMock.quiz.update.mockResolvedValue({ id: 1 });
+            const res = await request(app).post('/quiz/1/force-checkin');
+            expect(res.status).toBe(200);
+        });
+        it('should return 403 for non-OWNER/ADMIN members', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, organizationId: 1,
+            });
+            prismaMock.organizationMember.findFirst.mockResolvedValue(null); // TEACHER or MEMBER
+            const res = await request(app).post('/quiz/1/force-checkin');
+            expect(res.status).toBe(403);
+            expect(prismaMock.quiz.update).not.toHaveBeenCalled();
+        });
+        it('should return 404 when quiz does not exist', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue(null);
+            const res = await request(app).post('/quiz/999/force-checkin');
+            expect(res.status).toBe(404);
+        });
+    });
+    describe('PUT /quiz/:id – lock enforcement', () => {
+        it('should block update with 423 when quiz is locked by another user', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, creatorId: 1, organizationId: 1,
+                lockedById: 2, // locked by user 2
+                lockExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+            });
+            const res = await request(app)
+                .put('/quiz/1')
+                .send({ title: 'Attempted Edit' });
+            expect(res.status).toBe(423);
+            expect(prismaMock.quiz.update).not.toHaveBeenCalled();
+        });
+        it('should allow update when quiz is locked by the current user', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, creatorId: 1, organizationId: 1,
+                lockedById: 1, // locked by user 1 (same as current user)
+                lockExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+            });
+            prismaMock.quiz.update.mockResolvedValue({ id: 1, title: 'My Edit' });
+            const res = await request(app)
+                .put('/quiz/1')
+                .send({ title: 'My Edit' });
+            expect(res.status).toBe(200);
+        });
+        it('should allow update when lock is expired', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, creatorId: 1, organizationId: 1,
+                lockedById: 2,
+                lockExpiresAt: new Date(Date.now() - 5000), // expired 5s ago
+            });
+            prismaMock.quiz.update.mockResolvedValue({ id: 1, title: 'After Lock Expired' });
+            const res = await request(app)
+                .put('/quiz/1')
+                .send({ title: 'After Lock Expired' });
+            expect(res.status).toBe(200);
+        });
+        it('should allow update on personal quiz regardless of lock fields', async () => {
+            prismaMock.quiz.findUnique.mockResolvedValue({
+                id: 1, creatorId: 1, organizationId: null,
+                lockedById: null, lockExpiresAt: null,
+            });
+            prismaMock.quiz.update.mockResolvedValue({ id: 1, title: 'Personal Quiz Edit' });
+            const res = await request(app)
+                .put('/quiz/1')
+                .send({ title: 'Personal Quiz Edit' });
+            expect(res.status).toBe(200);
         });
     });
 });

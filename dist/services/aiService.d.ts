@@ -25,6 +25,19 @@ export interface AIGenerationResponse extends AIQuizMetadata {
     questions: GeneratedQuestionData[];
     tokenUsage?: number;
 }
+export type AgentChatResponse = {
+    type: 'chat';
+    message: string;
+    tokenUsage?: number;
+} | {
+    type: 'quiz_update';
+    message: string;
+    suggestedTitle: string;
+    suggestedDescription: string;
+    suggestedCategory: string;
+    questions: GeneratedQuestionData[];
+    tokenUsage?: number;
+};
 export interface ImagePart {
     inlineData: {
         data: string;
@@ -43,7 +56,7 @@ export declare function processAgentChat(history: {
     parts: {
         text: string;
     }[];
-}[], message: string): Promise<AIGenerationResponse>;
+}[], message: string): Promise<AgentChatResponse>;
 export interface ExtractedStudent {
     name: string;
     studentCode?: string;

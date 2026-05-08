@@ -11,7 +11,7 @@ const getCurrentPeriod = async (orgId, key) => {
         orderBy: { createdAt: 'desc' },
     });
     // Strategy: AI Generation and matches on FREE plan is DAILY
-    if ((key === 'ai_generations' || key === 'matches_hosted') && subscription?.plan?.type === 'FREE') {
+    if ((key === 'ai_generations' || key === 'ai_image_generations' || key === 'matches_hosted') && subscription?.plan?.type === 'FREE') {
         const now = new Date();
         const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);

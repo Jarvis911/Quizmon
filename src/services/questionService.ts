@@ -22,6 +22,8 @@ export interface QuestionData {
     quizId: number;
     text: string;
     type: QuestionType;
+    /** When true, skip the per-question in-app notification (bulk / AI import). */
+    skipQuestionNotification?: boolean;
     media?: MediaItem[];
     options?: QuestionOption[];
     // Type-specific fields (will be stored in `data` JSON column)
@@ -113,13 +115,14 @@ export const createQuestion = async (questionData: QuestionData) => {
             },
         });
 
-        // Send notification
-        await notificationService.createNotification(
-            question.quiz.creatorId,
-            `Bạn đã thêm một câu hỏi mới vào bộ: ${question.quiz.title}`,
-            'QUESTION_CREATED',
-            `/library/${question.quiz.id}`
-        );
+        if (!questionData.skipQuestionNotification) {
+            await notificationService.createNotification(
+                question.quiz.creatorId,
+                `Bạn đã thêm một câu hỏi mới vào bộ: ${question.quiz.title}`,
+                'QUESTION_CREATED',
+                `/library/${question.quiz.id}`
+            );
+        }
 
         return question;
     } catch (err) {

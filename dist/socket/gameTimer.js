@@ -1,5 +1,5 @@
 import { getMatch, saveMatch, matchIntervals } from './matchStore.js';
-import { checkAnswer, calculatePoints } from './scoreCalculator.js';
+import { checkAnswer, calculatePoints, getTypeAnswerVerdict } from './scoreCalculator.js';
 import { TIME_UPDATE_INTERVAL_MS, NEXT_QUESTION_DELAY_MS } from './constants.js';
 /**
  * Start the question timer for a match.
@@ -135,6 +135,10 @@ export async function processTimeUp(io, matchId) {
             isCorrect: result.isCorrect,
             questionId,
             correctAnswer, // Send the correct answer here
+            verdict: question.type === 'TYPEANSWER'
+                ? getTypeAnswerVerdict(question.data?.correctAnswer, typeof answer === 'string' ? answer : '')
+                : (result.isCorrect ? 'correct' : 'wrong'),
+            ...(question.type === 'TYPEANSWER' && { phase: 'reveal' }),
             ...(question.type === 'LOCATION' && { correctLatLon: result.correctLatLon }),
         });
     }

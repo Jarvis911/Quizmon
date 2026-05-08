@@ -5,7 +5,7 @@ const router = Router();
 // Participant routes (nested under /match/:matchId)
 router.post('/:matchId/participants', authMiddleware, createParticipant);
 router.get('/:matchId/participants', getParticipants);
-router.get('/:matchId/participants/:id', getParticipant);
+router.get('/:matchId/participants/:id', authMiddleware, getParticipant);
 router.put('/:matchId/participants/:id', authMiddleware, updateParticipant);
 router.delete('/:matchId/participants/:id', authMiddleware, deleteParticipant);
 export default router;

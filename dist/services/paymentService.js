@@ -2,6 +2,8 @@ import prisma from '../prismaClient.js';
 import { BillingCycle, SubscriptionStatus, PaymentStatus, PaymentMethod } from '@prisma/client';
 import { getGateway, getAvailableGateways } from './gateways/paymentGateway.js';
 import { FRONTEND_URL, BACKEND_URL } from '../config/index.js';
+import { emailService } from './emailService.js';
+import { subscriptionActivatedEmail } from './emailTemplates.js';
 // Re-export for convenience
 export { getAvailableGateways };
 // ─── Create Checkout Session ────────────────────────────────────────
@@ -77,7 +79,7 @@ export const fulfillSubscription = async (orderId, orgId, planId, billingCycle =
         periodEnd.setMonth(periodEnd.getMonth() + 1);
     }
     const amount = billingCycle === BillingCycle.YEARLY ? plan.priceYearly : plan.priceMonthly;
-    return prisma.$transaction(async (tx) => {
+    const subscription = await prisma.$transaction(async (tx) => {
         // Cancel any existing active subscriptions
         await tx.subscription.updateMany({
             where: { organizationId: orgId, status: SubscriptionStatus.ACTIVE },
@@ -121,9 +123,20 @@ export const fulfillSubscription = async (orderId, orgId, planId, billingCycle =
             },
             include: {
                 plan: { include: { features: true } },
+                organization: { select: { name: true } },
             },
         });
     });
+    if (subscription.organization?.name) {
+        const { subject, html } = subscriptionActivatedEmail({
+            orgName: subscription.organization.name,
+            planName: subscription.plan.name,
+            billingCycle: subscription.billingCycle,
+            currentPeriodEnd: subscription.currentPeriodEnd,
+        });
+        void emailService.sendToOrgBillingContacts(orgId, subject, html).catch((e) => console.error('[fulfillSubscription] Subscription email failed:', e));
+    }
+    return subscription;
 };
 // ─── Handle Payment Callback ────────────────────────────────────────
 /**

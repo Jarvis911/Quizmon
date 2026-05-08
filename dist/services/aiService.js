@@ -23,6 +23,154 @@ const QUESTION_TYPE_DESCRIPTIONS = {
     REORDER: 'User reorders items in correct order. Provide 4-6 items with "text" and "order" (number, starting at 1) fields.',
     LOCATION: 'User picks a location on a map. Provide "correctLatitude" (number) and "correctLongitude" (number) fields.',
 };
+const VALID_QUESTION_TYPES = new Set(['BUTTONS', 'CHECKBOXES', 'TYPEANSWER', 'REORDER', 'LOCATION']);
+const VALID_IMAGE_EFFECTS = new Set(['NONE', 'BLUR_TO_CLEAR', 'ZOOM_IN', 'ZOOM_OUT']);
+/** Strip HTML tags to prevent stored XSS from AI-generated or user-supplied strings. */
+function sanitizeText(value) {
+    if (typeof value !== 'string')
+        return '';
+    return value.replace(/<[^>]*>/g, '').trim();
+}
+/** Recursively sanitize string leaves inside optionsData (option text, correctAnswer, etc.). */
+function sanitizeOptionsData(optionsData) {
+    const out = {};
+    for (const [key, val] of Object.entries(optionsData)) {
+        if (Array.isArray(val)) {
+            out[key] = val.map((item) => {
+                if (item && typeof item === 'object') {
+                    const sanitizedItem = {};
+                    for (const [k, v] of Object.entries(item)) {
+                        sanitizedItem[k] = typeof v === 'string' ? sanitizeText(v) : v;
+                    }
+                    return sanitizedItem;
+                }
+                return item;
+            });
+        }
+        else if (typeof val === 'string') {
+            out[key] = sanitizeText(val);
+        }
+        else {
+            out[key] = val;
+        }
+    }
+    return out;
+}
+function validateOptionsData(questionType, optionsData, index) {
+    switch (questionType) {
+        case 'BUTTONS':
+        case 'CHECKBOXES': {
+            if (!Array.isArray(optionsData.options)) {
+                throw new Error(`Question ${index} (${questionType}) missing options array`);
+            }
+            const opts = optionsData.options;
+            if (opts.length < 2) {
+                throw new Error(`Question ${index} (${questionType}) needs at least 2 options`);
+            }
+            const correctCount = opts.filter((o) => o.isCorrect === true).length;
+            if (questionType === 'BUTTONS' && correctCount !== 1) {
+                throw new Error(`Question ${index} (BUTTONS) must have exactly 1 correct answer, got ${correctCount}`);
+            }
+            if (questionType === 'CHECKBOXES' && correctCount < 1) {
+                throw new Error(`Question ${index} (CHECKBOXES) must have at least 1 correct answer`);
+            }
+            break;
+        }
+        case 'TYPEANSWER': {
+            if (typeof optionsData.correctAnswer !== 'string' || !optionsData.correctAnswer.trim()) {
+                throw new Error(`Question ${index} (TYPEANSWER) missing correctAnswer`);
+            }
+            break;
+        }
+        case 'REORDER': {
+            if (!Array.isArray(optionsData.options) || optionsData.options.length < 2) {
+                throw new Error(`Question ${index} (REORDER) needs at least 2 items`);
+            }
+            // Auto-assign order if AI forgot to include it
+            const reorderItems = optionsData.options;
+            reorderItems.forEach((item, i) => {
+                if (typeof item.order !== 'number') {
+                    item.order = i + 1;
+                }
+            });
+            break;
+        }
+        case 'LOCATION': {
+            if (typeof optionsData.correctLatitude !== 'number' || typeof optionsData.correctLongitude !== 'number') {
+                throw new Error(`Question ${index} (LOCATION) missing correctLatitude/correctLongitude numbers`);
+            }
+            break;
+        }
+    }
+}
+function parseVisualPlan(vp) {
+    if (!vp || typeof vp !== 'object' || Array.isArray(vp))
+        return undefined;
+    const plan = vp;
+    if (typeof plan.includeImage !== 'boolean')
+        return undefined;
+    return {
+        includeImage: plan.includeImage,
+        imagePrompt: typeof plan.imagePrompt === 'string' ? sanitizeText(plan.imagePrompt) : undefined,
+        imageEffect: VALID_IMAGE_EFFECTS.has(plan.imageEffect)
+            ? plan.imageEffect
+            : 'NONE',
+    };
+}
+/** Validate structure and sanitize all string fields from a bulk generation response. */
+function validateGenerationResponse(data) {
+    if (!Array.isArray(data.questions) || data.questions.length === 0) {
+        throw new Error('AI response missing or empty questions array');
+    }
+    const questions = data.questions.map((q, index) => {
+        if (!q || typeof q !== 'object' || Array.isArray(q)) {
+            throw new Error(`Question ${index} is not an object`);
+        }
+        const qObj = q;
+        if (typeof qObj.questionText !== 'string' || !qObj.questionText.trim()) {
+            throw new Error(`Question ${index} missing questionText`);
+        }
+        if (!VALID_QUESTION_TYPES.has(qObj.questionType)) {
+            throw new Error(`Question ${index} has invalid questionType: ${qObj.questionType}`);
+        }
+        if (!qObj.optionsData || typeof qObj.optionsData !== 'object' || Array.isArray(qObj.optionsData)) {
+            throw new Error(`Question ${index} missing optionsData object`);
+        }
+        validateOptionsData(qObj.questionType, qObj.optionsData, index);
+        return {
+            questionText: sanitizeText(qObj.questionText),
+            questionType: qObj.questionType,
+            optionsData: sanitizeOptionsData(qObj.optionsData),
+            visualPlan: parseVisualPlan(qObj.visualPlan),
+        };
+    });
+    return {
+        suggestedTitle: sanitizeText(data.suggestedTitle) || 'New AI Quiz',
+        suggestedDescription: sanitizeText(data.suggestedDescription) || '',
+        suggestedCategory: sanitizeText(data.suggestedCategory) || 'General',
+        coverImagePrompt: typeof data.coverImagePrompt === 'string' ? sanitizeText(data.coverImagePrompt) : undefined,
+        questions,
+    };
+}
+/** Validate structure and sanitize a single regenerated question. */
+function validateSingleQuestion(data) {
+    if (typeof data.questionText !== 'string' || !data.questionText.trim()) {
+        throw new Error('Regenerated question missing questionText');
+    }
+    if (!VALID_QUESTION_TYPES.has(data.questionType)) {
+        throw new Error(`Regenerated question has invalid questionType: ${data.questionType}`);
+    }
+    if (!data.optionsData || typeof data.optionsData !== 'object' || Array.isArray(data.optionsData)) {
+        throw new Error('Regenerated question missing optionsData object');
+    }
+    validateOptionsData(data.questionType, data.optionsData, 0);
+    return {
+        questionText: sanitizeText(data.questionText),
+        questionType: data.questionType,
+        optionsData: sanitizeOptionsData(data.optionsData),
+        visualPlan: parseVisualPlan(data.visualPlan) ?? { includeImage: false, imageEffect: 'NONE' },
+    };
+}
 function buildPrompt(instruction, pdfText, questionCount, questionTypes, hasImages = false) {
     const typeDescriptions = questionTypes
         .map(t => `- ${t}: ${QUESTION_TYPE_DESCRIPTIONS[t] || t}`)
@@ -114,31 +262,8 @@ export async function generateQuestions(instruction, pdfText, imageParts, questi
         .replace(/```\s*/g, '')
         .trim();
     const data = JSON.parse(cleaned);
-    const rawQuestions = (data.questions || []);
-    // Validate and normalize
-    return {
-        suggestedTitle: data.suggestedTitle || 'New AI Quiz',
-        suggestedDescription: data.suggestedDescription || 'Quiz generated by AI',
-        suggestedCategory: data.suggestedCategory || 'General',
-        coverImagePrompt: typeof data.coverImagePrompt === 'string' ? data.coverImagePrompt : undefined,
-        questions: rawQuestions.map((q) => {
-            const vp = q.visualPlan;
-            const visualPlan = vp && typeof vp.includeImage === 'boolean'
-                ? {
-                    includeImage: vp.includeImage,
-                    imagePrompt: typeof vp.imagePrompt === 'string' ? vp.imagePrompt : undefined,
-                    imageEffect: vp.imageEffect,
-                }
-                : undefined;
-            return {
-                questionText: q.questionText,
-                questionType: q.questionType,
-                optionsData: q.optionsData,
-                visualPlan,
-            };
-        }),
-        tokenUsage
-    };
+    const validated = validateGenerationResponse(data);
+    return { ...validated, tokenUsage };
 }
 export async function regenerateQuestion(originalQuestion, userFeedback, instruction) {
     const modelName = await getModelForFeature('QUESTION_REGENERATION');
@@ -173,23 +298,10 @@ JSON:`;
         .replace(/```json\s*/gi, '')
         .replace(/```\s*/g, '')
         .trim();
-    const question = JSON.parse(cleaned);
-    const vp = question.visualPlan;
-    const visualPlan = vp && typeof vp.includeImage === 'boolean'
-        ? {
-            includeImage: vp.includeImage,
-            imagePrompt: typeof vp.imagePrompt === 'string' ? vp.imagePrompt : undefined,
-            imageEffect: vp.imageEffect,
-        }
-        : { includeImage: false, imageEffect: 'NONE' };
+    const raw = JSON.parse(cleaned);
+    const validated = validateSingleQuestion(raw);
     const tokenUsage = result.response.usageMetadata?.totalTokenCount || 0;
-    return {
-        questionText: question.questionText,
-        questionType: question.questionType,
-        optionsData: question.optionsData,
-        visualPlan,
-        tokenUsage
-    };
+    return { ...validated, tokenUsage };
 }
 export async function extractPdfText(buffer) {
     // pdf-parse is a CommonJS module
@@ -204,49 +316,102 @@ export async function processAgentChat(history, message) {
     const chat = model.startChat({
         history: history,
         generationConfig: {
-            temperature: 1,
+            temperature: 0.9,
             topP: 0.95,
             topK: 40,
             maxOutputTokens: 8192,
             responseMimeType: "application/json",
         },
     });
-    const systemPrompt = `You are a Quizmon Agent, an expert in creating engaging and educational quizzes.
-Your goal is to help the user build a quiz step-by-step or all at once.
-You ALWAYS respond with a JSON object representing the CURRENT STATE of the entire quiz.
+    const systemPrompt = `You are Quizmon Agent, a friendly and helpful AI assistant specialized in creating educational quizzes.
+You can chat naturally with users AND help them build quizzes step by step.
+Always respond with valid JSON in one of the two shapes below.
 
-JSON Structure:
+━━━ RESPONSE SHAPES ━━━
+
+Shape A — Conversational (greetings, suggestions, clarifications, general questions):
 {
-  "suggestedTitle": "...",
-  "suggestedDescription": "...",
-  "suggestedCategory": "...",
-  "questions": [
-    {
-      "questionText": "...",
-      "questionType": "BUTTONS|CHECKBOXES|TYPEANSWER|REORDER|LOCATION",
-      "optionsData": { ... }
-    }
-  ]
+  "type": "chat",
+  "message": "Your friendly response in the user's language"
 }
 
-Available Question Types:
-${Object.entries(QUESTION_TYPE_DESCRIPTIONS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}
+Shape B — Quiz operations (create / add / modify / remove questions):
+{
+  "type": "quiz_update",
+  "message": "Friendly summary of what you did (in the user's language)",
+  "suggestedTitle": "Quiz title",
+  "suggestedDescription": "Short description",
+  "suggestedCategory": "Category",
+  "questions": [ ... full current quiz state ... ]
+}
 
-Rules:
-1. If the user asks for new questions, add them to the existing list.
-2. If the user asks to modify a question, update it in the list.
-3. If the user asks to remove a question, delete it.
-4. Keep the output strictly as JSON.
-5. Use the same language as the user.`;
+━━━ QUESTION TYPES & optionsData FORMAT ━━━
+
+BUTTONS — single correct answer (exactly 1 isCorrect: true):
+  "optionsData": { "options": [{"text": "...", "isCorrect": true}, {"text": "...", "isCorrect": false}, ...] }
+  → Must have exactly 4 options, exactly 1 with isCorrect: true
+
+CHECKBOXES — one or more correct answers:
+  "optionsData": { "options": [{"text": "...", "isCorrect": true}, {"text": "...", "isCorrect": false}, ...] }
+  → Must have exactly 4 options, at least 1 with isCorrect: true
+
+TYPEANSWER — user types the answer:
+  "optionsData": { "correctAnswer": "exact answer string" }
+
+REORDER — user reorders items into correct sequence:
+  "optionsData": { "options": [{"text": "First step", "order": 1}, {"text": "Second step", "order": 2}, ...] }
+  → "order" is the CORRECT POSITION (1 = first, 2 = second...). This field IS the answer and is REQUIRED for every item.
+  → Provide 4-6 items.
+
+LOCATION — user picks a map location:
+  "optionsData": { "correctLatitude": 10.7769, "correctLongitude": 106.7009 }
+
+━━━ RULES ━━━
+1. Use Shape A when: user greets you, makes small talk, asks general questions, requests suggestions, or you need clarification.
+2. Use Shape B when: user wants to create, add, modify, or remove quiz questions — always return the FULL current quiz state.
+3. When updating, keep all existing questions unless the user explicitly asks to remove them.
+4. Self-review before responding: verify every question has correct optionsData format.
+5. For REORDER: EVERY item MUST have a numeric "order" field — missing "order" = broken question.
+6. Use the same language as the user.`;
     const result = await chat.sendMessage([
         { text: systemPrompt },
         { text: message }
     ]);
     const text = result.response.text();
-    const data = JSON.parse(text);
     const tokenUsage = result.response.usageMetadata?.totalTokenCount || 0;
-    data.tokenUsage = tokenUsage;
-    return data;
+    let raw;
+    try {
+        const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        raw = JSON.parse(cleaned);
+    }
+    catch {
+        // If JSON parse fails, treat as a plain chat response
+        return { type: 'chat', message: text.trim() || 'Xin chào! Mình có thể giúp gì cho bạn?', tokenUsage };
+    }
+    // Shape A: conversational response
+    if (raw.type === 'chat') {
+        return {
+            type: 'chat',
+            message: typeof raw.message === 'string' && raw.message.trim()
+                ? raw.message.trim()
+                : 'Mình hiểu rồi! Bạn cần mình giúp gì thêm?',
+            tokenUsage,
+        };
+    }
+    // Shape B: quiz update (or legacy format without type field)
+    const validated = validateGenerationResponse(raw);
+    const agentMessage = typeof raw.message === 'string' && raw.message.trim()
+        ? raw.message.trim()
+        : `Mình đã cập nhật quiz "${validated.suggestedTitle}" (${validated.questions.length} câu). Bạn muốn thêm/sửa/xoá gì tiếp?`;
+    return {
+        type: 'quiz_update',
+        message: agentMessage,
+        suggestedTitle: validated.suggestedTitle,
+        suggestedDescription: validated.suggestedDescription,
+        suggestedCategory: validated.suggestedCategory,
+        questions: validated.questions,
+        tokenUsage,
+    };
 }
 /**
  * Use Gemini to extract a student list from text content or an image buffer.

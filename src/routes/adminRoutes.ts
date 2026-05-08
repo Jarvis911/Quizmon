@@ -21,6 +21,11 @@ router.get('/ai-config', adminController.getAIConfig);
 router.get('/ai-config-options', adminController.getAIConfigOptions);
 router.put('/ai-config', adminController.updateAIConfig);
 
+router.get('/plans/keys', adminController.getPlanFeatureKeys);
+router.get('/plans', adminController.getAdminPlans);
+router.put('/plans/:id', adminController.updatePlan);
+router.put('/plans/:id/features', adminController.replacePlanFeatures);
+
 // Promotion management
 router.get('/promotions', promotionController.getAllPromotions);
 router.post('/promotions', promotionController.createPromotion);

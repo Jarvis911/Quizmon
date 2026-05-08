@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import prisma from "../prismaClient.js";
 class EmailService {
     transporter = null;
     getTransporter() {
@@ -35,6 +36,20 @@ class EmailService {
             console.error("Error sending email: ", error);
             return false;
         }
+    }
+    /** Send the same HTML message to organization OWNER and ADMIN members (billing/security notices). */
+    async sendToOrgBillingContacts(organizationId, subject, html) {
+        const members = (await prisma.organizationMember.findMany({
+            where: {
+                organizationId,
+                role: { in: ["OWNER", "ADMIN"] },
+            },
+            include: { user: { select: { email: true } } },
+        })) ?? [];
+        const emails = [...new Set(members.map((m) => m.user.email).filter(Boolean))];
+        if (emails.length === 0)
+            return;
+        await Promise.all(emails.map((to) => this.sendEmail(to, subject, html)));
     }
 }
 export const emailService = new EmailService();

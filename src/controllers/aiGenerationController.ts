@@ -518,6 +518,7 @@ export const approveAllAndCreateQuiz = async (req: Request, res: Response): Prom
                 quizId: quiz.id,
                 text: genQ.questionText,
                 type: genQ.questionType,
+                skipQuestionNotification: true,
             };
 
             if (genQ.generatedImageUrl) {
@@ -692,6 +693,7 @@ export const finalizeAgenticQuiz = async (req: Request, res: Response): Promise<
                 quizId: quiz.id,
                 text: genQ.questionText,
                 type: genQ.questionType,
+                skipQuestionNotification: true,
             };
 
             if (genQ.questionType === 'BUTTONS' || genQ.questionType === 'CHECKBOXES') {
@@ -722,6 +724,16 @@ export const finalizeAgenticQuiz = async (req: Request, res: Response): Promise<
 
             await createQuestionService(questionData);
         }
+
+        const count = questions.length;
+        await notificationService.createNotification(
+            Number(userId),
+            count <= 1
+                ? `Bộ câu hỏi "${quiz.title}" đã được tạo (${count} câu).`
+                : `Bộ câu hỏi "${quiz.title}" đã được tạo — ${count} câu hỏi đã thêm vào thư viện.`,
+            'AI_QUIZ_APPROVED',
+            `/library/${quiz.id}`
+        );
 
         res.status(201).json(quiz);
     } catch (err) {

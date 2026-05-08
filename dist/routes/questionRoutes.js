@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import authMiddleware from '../middleware/authMiddleware.js';
+import authMiddleware, { optionalAuthMiddleware } from '../middleware/authMiddleware.js';
 import logMiddleware from '../middleware/logMiddleware.js';
 import upload from '../middleware/uploadMiddleware.js';
 import { createButtonQuestion, updateButtonQuestion, createCheckboxQuestion, updateCheckboxQuestion, createReorderQuestion, updateReorderQuestion, createLocationQuestion, updateLocationQuestion, createTypeAnswerQuestion, updateTypeAnswerQuestion, getRetrieveQuestion, deleteQuestion, } from '../controllers/questionController.js';
@@ -268,7 +268,7 @@ router.put('/typeanswer/:id', authMiddleware, logMiddleware, upload.array('files
  *       200:
  *         description: Question details
  */
-router.get('/:id', getRetrieveQuestion);
+router.get('/:id', optionalAuthMiddleware, getRetrieveQuestion);
 // Delete Question
 /**
  * @swagger

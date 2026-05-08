@@ -2,7 +2,7 @@ import { Router } from 'express';
 import authMiddleware, { optionalAuthMiddleware } from '../middleware/authMiddleware.js';
 import orgMiddleware from '../middleware/orgMiddleware.js';
 import upload from '../middleware/uploadMiddleware.js';
-import { getQuiz, createQuiz, updateQuiz, deleteQuiz, getRetrieveQuiz, getQuestionByQuiz, checkUserRateQuiz, getQuizRating, exploreQuizzes, getOrgQuizzes, replicateQuiz, assignQuizToOrg, removeQuizFromOrg, getAssignableQuizzes } from '../controllers/quizController.js';
+import { getQuiz, createQuiz, updateQuiz, deleteQuiz, getRetrieveQuiz, getQuestionByQuiz, checkUserRateQuiz, getQuizRating, exploreQuizzes, getOrgQuizzes, replicateQuiz, assignQuizToOrg, removeQuizFromOrg, getAssignableQuizzes, checkoutQuiz, checkinQuiz, forceCheckinQuiz } from '../controllers/quizController.js';
 const router = Router();
 // Create Quiz
 /**
@@ -175,4 +175,8 @@ router.post('/:id/replicate', authMiddleware, orgMiddleware, replicateQuiz);
 // Assign quiz to org / remove from org
 router.post('/:id/assign-to-org', authMiddleware, orgMiddleware, assignQuizToOrg);
 router.post('/:id/remove-from-org', authMiddleware, orgMiddleware, removeQuizFromOrg);
+// Checkout lock
+router.post('/:id/checkout', authMiddleware, orgMiddleware, checkoutQuiz);
+router.post('/:id/checkin', authMiddleware, orgMiddleware, checkinQuiz);
+router.post('/:id/force-checkin', authMiddleware, orgMiddleware, forceCheckinQuiz);
 export default router;

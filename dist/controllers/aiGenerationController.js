@@ -214,6 +214,14 @@ export const updateGeneratedQuestion = async (req, res) => {
             res.status(404).json({ message: 'Job not found' });
             return;
         }
+        // Verify the question belongs to this job (prevents IDOR)
+        const existingQuestion = await prisma.aIGeneratedQuestion.findFirst({
+            where: { id: Number(questionId), jobId: Number(id) },
+        });
+        if (!existingQuestion) {
+            res.status(404).json({ message: 'Question not found' });
+            return;
+        }
         const updateData = { status };
         if (userFeedback) {
             updateData.userFeedback = userFeedback;
@@ -243,8 +251,9 @@ export const regenerateGeneratedQuestion = async (req, res) => {
             res.status(404).json({ message: 'Job not found' });
             return;
         }
-        const existingQuestion = await prisma.aIGeneratedQuestion.findUnique({
-            where: { id: Number(questionId) },
+        // Verify the question belongs to this job (prevents IDOR)
+        const existingQuestion = await prisma.aIGeneratedQuestion.findFirst({
+            where: { id: Number(questionId), jobId: Number(id) },
         });
         if (!existingQuestion) {
             res.status(404).json({ message: 'Question not found' });
@@ -308,6 +317,14 @@ export const updateGeneratedQuestionContent = async (req, res) => {
             res.status(404).json({ message: 'Job not found' });
             return;
         }
+        // Verify the question belongs to this job (prevents IDOR)
+        const existingQuestion = await prisma.aIGeneratedQuestion.findFirst({
+            where: { id: Number(questionId), jobId: Number(id) },
+        });
+        if (!existingQuestion) {
+            res.status(404).json({ message: 'Question not found' });
+            return;
+        }
         const updateData = {};
         if (questionText !== undefined)
             updateData.questionText = questionText;
@@ -336,6 +353,14 @@ export const deleteGeneratedQuestion = async (req, res) => {
         });
         if (!job) {
             res.status(404).json({ message: 'Job not found' });
+            return;
+        }
+        // Verify the question belongs to this job (prevents IDOR)
+        const existingQuestion = await prisma.aIGeneratedQuestion.findFirst({
+            where: { id: Number(questionId), jobId: Number(id) },
+        });
+        if (!existingQuestion) {
+            res.status(404).json({ message: 'Question not found' });
             return;
         }
         await prisma.aIGeneratedQuestion.delete({
@@ -392,6 +417,7 @@ export const approveAllAndCreateQuiz = async (req, res) => {
                 quizId: quiz.id,
                 text: genQ.questionText,
                 type: genQ.questionType,
+                skipQuestionNotification: true,
             };
             if (genQ.generatedImageUrl) {
                 questionData.media = [
@@ -476,6 +502,14 @@ export const updateJobStatus = async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
+        const userId = req.userId;
+        const existing = await prisma.aIGenerationJob.findFirst({
+            where: { id: Number(id), userId: Number(userId) },
+        });
+        if (!existing) {
+            res.status(404).json({ message: 'Job not found' });
+            return;
+        }
         const job = await prisma.aIGenerationJob.update({
             where: { id: Number(id) },
             data: { status },
@@ -535,6 +569,7 @@ export const finalizeAgenticQuiz = async (req, res) => {
                 quizId: quiz.id,
                 text: genQ.questionText,
                 type: genQ.questionType,
+                skipQuestionNotification: true,
             };
             if (genQ.questionType === 'BUTTONS' || genQ.questionType === 'CHECKBOXES') {
                 const options = optData.options || [];
@@ -570,6 +605,10 @@ export const finalizeAgenticQuiz = async (req, res) => {
             }
             await createQuestionService(questionData);
         }
+        const count = questions.length;
+        await notificationService.createNotification(Number(userId), count <= 1
+            ? `Bộ câu hỏi "${quiz.title}" đã được tạo (${count} câu).`
+            : `Bộ câu hỏi "${quiz.title}" đã được tạo — ${count} câu hỏi đã thêm vào thư viện.`, 'AI_QUIZ_APPROVED', `/library/${quiz.id}`);
         res.status(201).json(quiz);
     }
     catch (err) {

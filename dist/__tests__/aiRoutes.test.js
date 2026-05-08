@@ -15,6 +15,14 @@ jest.unstable_mockModule('../middleware/authMiddleware.js', () => ({
         req.organizationId = 1;
         next();
     },
+    optionalAuthMiddleware: (req, res, next) => {
+        if (req.headers.authorization) {
+            req.user = { id: 1 };
+            req.userId = 1;
+            req.organizationId = 1;
+        }
+        next();
+    },
 }));
 jest.unstable_mockModule('../middleware/orgMiddleware.js', () => ({
     __esModule: true,
@@ -29,6 +37,8 @@ jest.unstable_mockModule('../services/aiService.js', () => ({
     regenerateQuestion: jest.fn(),
     extractPdfText: jest.fn(),
     extractStudentList: jest.fn(),
+    processAgentChat: jest.fn(),
+    getModelForFeature: jest.fn().mockResolvedValue('gemini-2.5-flash'),
 }));
 jest.unstable_mockModule('../services/azureBlobService.js', () => ({
     __esModule: true,
