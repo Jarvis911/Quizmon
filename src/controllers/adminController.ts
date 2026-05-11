@@ -6,44 +6,6 @@ import { AI_FEATURES, GEMINI_MODELS } from '../types/ai.js';
 
 const ALL_FEATURE_KEYS = Object.values(FeatureKey) as FeatureKey[];
 
-export const getDashboardStats = async (req: Request, res: Response) => {
-    try {
-        // Overall stats
-        const usersCount = await prisma.user.count();
-        const quizzesCount = await prisma.quiz.count();
-        const activeSubscriptions = await prisma.subscription.count({
-            where: { status: 'ACTIVE' }
-        });
-
-        // Calculate Revenue (Sum of COMPLETED payments)
-        const payments = await prisma.payment.aggregate({
-            _sum: { amount: true },
-            where: { status: 'COMPLETED' }
-        });
-        const revenue = payments._sum.amount || 0;
-
-        // Total AI Jobs 
-        const aiJobsCount = await prisma.aIGenerationJob.count();
-
-        // Total Tokens Used
-        const jobs = await prisma.aIGenerationJob.aggregate({
-            _sum: { totalTokens: true }
-        });
-        const totalTokens = jobs._sum.totalTokens || 0;
-
-        res.json({
-            users: usersCount,
-            quizzes: quizzesCount,
-            activeSubscriptions,
-            revenue,
-            aiJobs: aiJobsCount,
-            totalTokens
-        });
-    } catch (e: any) {
-        res.status(500).json({ message: e.message });
-    }
-};
-
 export const getQuizzes = async (req: Request, res: Response) => {
     try {
         const { search, categoryId } = req.query;

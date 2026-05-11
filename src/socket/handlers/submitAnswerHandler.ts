@@ -88,11 +88,8 @@ export function handleSubmitAnswer(io: Server, socket: CustomSocket) {
             await saveMatch(matchId, matchState);
 
             // Check if ALL players have now submitted
-            // TYPEANSWER does not end early based on allSubmitted (players may retry).
-            allSubmitted =
-                currentQuestion.type === 'TYPEANSWER'
-                    ? false
-                    : matchState.players.every((p) => p.submitted.has(questionId));
+            // For TYPEANSWER, player.submitted is only set when the answer is correct.
+            allSubmitted = matchState.players.every((p) => p.submitted.has(questionId));
         });
 
         if (emitError) {

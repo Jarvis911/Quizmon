@@ -130,7 +130,16 @@ export const startHomework = async (req: Request, res: Response): Promise<void> 
         // Get user details for participant
         const user = await prisma.user.findUnique({ where: { id: Number(userId) } });
 
-        // Upsert participant
+        // Check if student already submitted — don't allow re-entry
+        const existing = await prisma.matchParticipant.findUnique({
+            where: { matchId_userId: { matchId: match.id, userId: Number(userId) } }
+        });
+        if (existing?.status === 'SUBMITTED') {
+            res.status(400).json({ message: 'You have already submitted this homework' });
+            return;
+        }
+
+        // Upsert participant (create or re-activate if they were somehow left IN_PROGRESS)
         const participant = await prisma.matchParticipant.upsert({
             where: {
                 matchId_userId: { matchId: match.id, userId: Number(userId) }
@@ -196,19 +205,30 @@ export const submitHomeworkAnswer = async (req: Request, res: Response): Promise
         // User hasn't specified complex scoring for homework yet, so let's stick to base logic.
         const score = validationResult.isCorrect ? 1000 : 0;
 
-        // Save answer
-        const answer = await prisma.matchAnswer.create({
-            data: {
-                participantId: participant.id,
-                questionId: Number(questionId),
-                answerData: answerData || {}, // JSON
+        // Save answer — upsert so retries/refreshes overwrite rather than crash
+        const answer = await prisma.matchAnswer.upsert({
+            where: {
+                participantId_questionId: {
+                    participantId: participant.id,
+                    questionId: Number(questionId),
+                }
+            },
+            update: {
+                answerData: answerData || {},
                 isCorrect: validationResult.isCorrect,
                 score: score,
-                timeTaken: 0 // Placeholder for now
+            },
+            create: {
+                participantId: participant.id,
+                questionId: Number(questionId),
+                answerData: answerData || {},
+                isCorrect: validationResult.isCorrect,
+                score: score,
+                timeTaken: 0,
             }
         });
 
-        res.status(201).json({ message: 'Answer recorded', answer });
+        res.status(201).json({ message: 'Answer recorded', isCorrect: validationResult.isCorrect, answer });
     } catch (error) {
         console.error('Submit homework answer error:', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -249,9 +269,68 @@ export const finishHomework = async (req: Request, res: Response): Promise<void>
             }
         });
 
-        res.status(200).json({ message: 'Homework submitted successfully', totalScore });
+        res.status(200).json({ message: 'Homework submitted successfully', score: totalScore, totalScore });
     } catch (error) {
         console.error('Finish homework error:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+export const getHomeworkDetail = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params; // matchId
+        const userId = req.userId;
+
+        if (!userId) {
+            res.status(401).json({ message: 'Unauthorized' });
+            return;
+        }
+
+        const match = await prisma.match.findUnique({
+            where: { id: Number(id) },
+            include: {
+                quiz: {
+                    include: {
+                        questions: true
+                    }
+                }
+            }
+        });
+
+        if (!match || match.mode !== 'HOMEWORK') {
+            res.status(404).json({ message: 'Homework not found' });
+            return;
+        }
+
+        if (match.classroomId) {
+            const isMember = await prisma.classroomMember.findUnique({
+                where: {
+                    classroomId_userId: {
+                        classroomId: match.classroomId,
+                        userId: Number(userId)
+                    }
+                }
+            });
+            const classroom = await prisma.classroom.findUnique({
+                where: { id: match.classroomId }
+            });
+            const isTeacher = classroom?.teacherId === Number(userId);
+
+            if (!isMember && !isTeacher) {
+                res.status(403).json({ message: 'You are not in this classroom' });
+                return;
+            }
+        }
+
+        // Include current user's submission status so the frontend can detect re-entry
+        const myParticipant = await prisma.matchParticipant.findUnique({
+            where: { matchId_userId: { matchId: match.id, userId: Number(userId) } },
+            select: { status: true }
+        });
+
+        res.status(200).json({ ...match, myParticipantStatus: myParticipant?.status ?? null });
+    } catch (error) {
+        console.error('Get homework detail error:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 };

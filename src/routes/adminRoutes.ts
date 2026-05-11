@@ -10,7 +10,6 @@ const router: Router = Router();
 router.use(authMiddleware);
 router.use(adminMiddleware);
 
-router.get('/stats', adminController.getDashboardStats);
 router.get('/users', adminController.getUsers);
 router.get('/quizzes', adminController.getQuizzes);
 router.delete('/quizzes/:id', adminController.deleteQuiz);

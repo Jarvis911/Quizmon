@@ -25,15 +25,19 @@ export function handleJoinMatch(io: Server, socket: CustomSocket) {
                 // the leaveMatch handler (which depends on socket.userId) will work.
                 socket.userId = Number(userId);
                 
-                // Get the PIN for the current match
+                // Get the PIN and quiz title for the current match
                 const existingMatch = await prisma.match.findUnique({
                     where: { id: Number(currentUserMatchId) },
-                    select: { pin: true }
+                    select: { 
+                        pin: true,
+                        quiz: { select: { title: true } }
+                    }
                 });
                 
                 return socket.emit('alreadyInMatch', { 
                     currentMatchId: currentUserMatchId,
-                    currentMatchPin: existingMatch?.pin 
+                    currentMatchPin: existingMatch?.pin,
+                    currentMatchQuizTitle: existingMatch?.quiz?.title
                 });
             }
             // If they are in the same match, we allow them to continue to join and resubscribe to the socket room.

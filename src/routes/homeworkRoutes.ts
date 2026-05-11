@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import authMiddleware from '../middleware/authMiddleware.js';
-import { createHomeworkMatch, finishHomework, startHomework, submitHomeworkAnswer } from '../controllers/homeworkController.js';
+import { createHomeworkMatch, finishHomework, getHomeworkDetail, startHomework, submitHomeworkAnswer } from '../controllers/homeworkController.js';
 
 const router: Router = Router();
 
@@ -8,6 +8,7 @@ const router: Router = Router();
 router.use(authMiddleware);
 
 router.post('/', createHomeworkMatch);
+router.get('/:id', getHomeworkDetail);
 router.post('/:id/start', startHomework);
 router.post('/:id/answer', submitHomeworkAnswer);
 router.post('/:id/finish', finishHomework);
