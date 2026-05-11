@@ -4,7 +4,8 @@ import prisma from '../prismaClient.js';
 import { AIFeature } from '../types/ai.js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-const GEMINI_PROXY_URL = process.env.GEMINI_PROXY_URL || 'https://falling-lab-bea2.triho753.workers.dev';
+export const GEMINI_PROXY_URL =
+    process.env.GEMINI_PROXY_URL || 'https://falling-lab-bea2.triho753.workers.dev';
 
 export async function getModelForFeature(featureName: AIFeature | string, defaultModel = 'gemini-2.5-flash'): Promise<string> {
     try {
@@ -391,27 +392,7 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
     return data.text;
 }
 
-export async function processAgentChat(
-    history: { role: 'user' | 'model'; parts: { text: string }[] }[],
-    message: string
-): Promise<AgentChatResponse> {
-    const modelName = await getModelForFeature('AGENT_CHAT');
-    const model = genAI.getGenerativeModel(
-        { model: modelName },
-        { baseUrl: GEMINI_PROXY_URL }
-    );
-    const chat = model.startChat({
-        history: history,
-        generationConfig: {
-            temperature: 0.9,
-            topP: 0.95,
-            topK: 40,
-            maxOutputTokens: 8192,
-            responseMimeType: "application/json",
-        },
-    });
-
-    const systemPrompt = `You are Quizmon Agent, a friendly and helpful AI assistant specialized in creating educational quizzes.
+const AGENT_CHAT_SYSTEM_PROMPT = `You are Quizmon Agent, a friendly and helpful AI assistant specialized in creating educational quizzes.
 You can chat naturally with users AND help them build quizzes step by step.
 Always respond with valid JSON in one of the two shapes below.
 
@@ -458,14 +439,34 @@ LOCATION — user picks a map location:
 1. Use Shape A when: user greets you, makes small talk, asks general questions, requests suggestions, or you need clarification.
 2. Use Shape B when: user wants to create, add, modify, or remove quiz questions — always return the FULL current quiz state.
 3. When updating, keep all existing questions unless the user explicitly asks to remove them.
-4. Self-review before responding: verify every question has correct optionsData format.
+4. Self-review before responding: verify every question has the "questionText" field and correct optionsData format.
 5. For REORDER: EVERY item MUST have a numeric "order" field — missing "order" = broken question.
 6. Use the same language as the user.`;
 
-    const result = await chat.sendMessage([
-        { text: systemPrompt },
-        { text: message }
-    ]);
+export async function processAgentChat(
+    history: { role: 'user' | 'model'; parts: { text: string }[] }[],
+    message: string
+): Promise<AgentChatResponse> {
+    const modelName = await getModelForFeature('AGENT_CHAT');
+    const model = genAI.getGenerativeModel(
+        {
+            model: modelName,
+            systemInstruction: { role: 'system', parts: [{ text: AGENT_CHAT_SYSTEM_PROMPT }] },
+        },
+        { baseUrl: GEMINI_PROXY_URL }
+    );
+    const chat = model.startChat({
+        history: history,
+        generationConfig: {
+            temperature: 0.7,
+            topP: 0.95,
+            topK: 40,
+            maxOutputTokens: 8192,
+            responseMimeType: "application/json",
+        },
+    });
+
+    const result = await chat.sendMessage(message);
 
     const text = result.response.text();
     const tokenUsage = result.response.usageMetadata?.totalTokenCount || 0;
@@ -491,7 +492,17 @@ LOCATION — user picks a map location:
     }
 
     // Shape B: quiz update (or legacy format without type field)
-    const validated = validateGenerationResponse(raw);
+    let validated: AIGenerationResponse;
+    try {
+        validated = validateGenerationResponse(raw);
+    } catch (validationError) {
+        console.warn('[Agent Chat] AI returned malformed quiz_update, falling back to chat:', validationError);
+        const fallbackMessage = typeof raw.message === 'string' && raw.message.trim()
+            ? raw.message.trim()
+            : 'Mình gặp chút vấn đề khi tạo quiz. Bạn có thể thử lại hoặc mô tả rõ hơn không?';
+        return { type: 'chat', message: fallbackMessage, tokenUsage };
+    }
+
     const agentMessage = typeof raw.message === 'string' && raw.message.trim()
         ? raw.message.trim()
         : `Mình đã cập nhật quiz "${validated.suggestedTitle}" (${validated.questions.length} câu). Bạn muốn thêm/sửa/xoá gì tiếp?`;
@@ -527,7 +538,10 @@ export async function extractStudentList(
     imageMimeType = 'image/jpeg'
 ): Promise<ExtractedStudent[]> {
     const modelName = await getModelForFeature('STUDENT_LIST_OCR', 'gemini-2.5-flash');
-    const model = genAI.getGenerativeModel({ model: modelName });
+    const model = genAI.getGenerativeModel(
+        { model: modelName },
+        { baseUrl: GEMINI_PROXY_URL }
+    );
 
     const systemPrompt = `You are a Vietnamese school student list extractor.
 Your job is to read the provided content (document text or image) and extract all student names.

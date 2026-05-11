@@ -1,4 +1,4 @@
-import { getModelForFeature } from './aiService.js';
+import { getModelForFeature, GEMINI_PROXY_URL } from './aiService.js';
 
 const DEFAULT_IMAGE_MODEL = 'gemini-2.5-flash-image';
 
@@ -13,9 +13,8 @@ export async function generateGeminiImageBytes(
 
     // Allow admin to configure image model via DB; fall back to env then hardcoded default
     const model = await getModelForFeature('IMAGE_GENERATION', process.env.GEMINI_IMAGE_MODEL || DEFAULT_IMAGE_MODEL);
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-        model
-    )}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const base = GEMINI_PROXY_URL.replace(/\/$/, '');
+    const url = `${base}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
     const body = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],

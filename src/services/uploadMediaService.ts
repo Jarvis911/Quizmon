@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { uploadBufferToAzure } from './azureBlobService.js';
 import { MediaItem } from './questionService.js';
 
@@ -22,7 +23,30 @@ export const uploadMedia = async (
             if (!file.mimetype.startsWith('image/')) {
                 throw new Error('Only image files are allowed for upload');
             }
-            const secure_url = await uploadBufferToAzure(file.buffer, file.originalname, file.mimetype);
+
+            // Optimize image before upload
+            let bufferToUpload = file.buffer;
+            let finalMimeType = file.mimetype;
+            let fileName = file.originalname;
+
+            try {
+                bufferToUpload = await sharp(file.buffer)
+                    .resize(1200, null, { 
+                        withoutEnlargement: true,
+                        fit: 'inside' 
+                    })
+                    .webp({ quality: 85 })
+                    .toBuffer();
+                
+                finalMimeType = 'image/webp';
+                // Change extension to .webp for the blob name
+                fileName = file.originalname.replace(/\.[^/.]+$/, "") + ".webp";
+            } catch (err) {
+                console.error('[Image Optimization Failed]:', err);
+                // Fallback to original buffer if sharp fails
+            }
+
+            const secure_url = await uploadBufferToAzure(bufferToUpload, fileName, finalMimeType);
             mediaData.push({
                 type: 'IMAGE',
                 url: secure_url,
