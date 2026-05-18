@@ -31,15 +31,42 @@ jest.unstable_mockModule('../services/azureBlobService.js', () => ({
     uploadBufferToAzure: (jest.fn() as any).mockResolvedValue('http://example.com/image.jpg'),
 }));
 
+const mockUserCanCreateAdditionalOrganization = jest.fn((_userId: number) => Promise.resolve(true));
+
+const mockOrganizationHasTeamCollaboration = jest.fn((_orgId: number) => Promise.resolve(true));
+
+jest.unstable_mockModule('../services/organizationTeamPlanService.js', () => ({
+    __esModule: true,
+    userCanCreateAdditionalOrganization: mockUserCanCreateAdditionalOrganization,
+    organizationHasTeamCollaboration: mockOrganizationHasTeamCollaboration,
+    getActivePlanTypeForOrganization: jest.fn(),
+    TEAM_COLLABORATION_FORBIDDEN_MESSAGE: 'Team collaboration forbidden',
+}));
+
 const { default: request } = await import('supertest');
 const { default: app } = await import('../app.js');
 
 describe('Organization Routes', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        mockUserCanCreateAdditionalOrganization.mockImplementation((_userId: number) => Promise.resolve(true));
+        mockOrganizationHasTeamCollaboration.mockImplementation((_orgId: number) => Promise.resolve(true));
     });
 
     describe('POST /organizations', () => {
+        it('should return 403 when user is not eligible to create additional organizations', async () => {
+            mockUserCanCreateAdditionalOrganization.mockImplementationOnce((_userId: number) =>
+                Promise.resolve(false)
+            );
+
+            const response = await request(app)
+                .post('/organizations')
+                .send({ name: 'Extra Org' });
+
+            expect(response.status).toBe(403);
+            expect(response.body.message).toBeTruthy();
+        });
+
         it('should create a new organization', async () => {
             const mockOrg = {
                 id: 1,

@@ -1,6 +1,12 @@
 import { Server } from 'socket.io';
 import { CustomSocket, SubmitAnswerPayload } from '../types.js';
-import { getMatch, saveMatch, withMatchLock } from '../matchStore.js';
+import {
+    getMatch,
+    saveMatch,
+    withMatchLock,
+    matchRemainingTimes,
+    matchProcessedQuestions,
+} from '../matchStore.js';
 import { validateAnswer } from '../answerValidator.js';
 import { processTimeUp } from '../gameTimer.js';
 import { getTypeAnswerVerdict } from '../scoreCalculator.js';
@@ -38,6 +44,14 @@ export function handleSubmitAnswer(io: Server, socket: CustomSocket) {
                 return;
             }
 
+            // If the reveal phase for this question already started (timer hit 0
+            // or all players submitted), reject late submissions. Otherwise the
+            // answer would be saved into the next round and award stale points.
+            if (matchProcessedQuestions.get(matchId)?.has(questionId)) {
+                emitError = 'Đã hết thời gian trả lời';
+                return;
+            }
+
             // Check if already submitted
             // TYPEANSWER supports multiple attempts until correct.
             if (player.submitted.has(questionId)) {
@@ -47,8 +61,13 @@ export function handleSubmitAnswer(io: Server, socket: CustomSocket) {
                 return;
             }
 
+            // Use the fresh in-memory remaining time (not the stale Redis value)
+            // so the score awarded matches exactly what the client just saw on
+            // the time bar. Falls back to the Redis value if unavailable.
+            const accurateRemainingTime = matchRemainingTimes.get(matchId) ?? matchState.remainingTime;
+
             // Check if time remaining > 0
-            if (matchState.remainingTime <= 0) {
+            if (accurateRemainingTime <= 0) {
                 emitError = 'Đã hết thời gian trả lời';
                 return;
             }
@@ -76,7 +95,7 @@ export function handleSubmitAnswer(io: Server, socket: CustomSocket) {
 
             matchState.answers.get(questionId)!.set(userId, {
                 answer: answer,
-                submitRemainingTime: matchState.remainingTime,
+                submitRemainingTime: accurateRemainingTime,
             });
 
             // For non-TYPEANSWER questions, a single submission locks the question.

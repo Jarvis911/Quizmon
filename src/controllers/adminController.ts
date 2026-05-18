@@ -1,20 +1,200 @@
 import { Request, Response } from 'express';
-import { FeatureKey } from '@prisma/client';
+import { FeatureKey, MatchMode, Prisma } from '@prisma/client';
 import prisma from '../prismaClient.js';
 import { deleteQuizCascade } from '../services/deleteQuizCascade.js';
 import { AI_FEATURES, GEMINI_MODELS } from '../types/ai.js';
 
 const ALL_FEATURE_KEYS = Object.values(FeatureKey) as FeatureKey[];
 
+function parseOptionalInt(value: unknown): number | undefined {
+    if (value === undefined || value === null || value === '') return undefined;
+    const n = Number(value);
+    return Number.isNaN(n) ? undefined : n;
+}
+
+function orgWhere(organizationId: unknown): { organizationId?: number } {
+    const id = parseOptionalInt(organizationId);
+    return id !== undefined ? { organizationId: id } : {};
+}
+
+export const getOrganizations = async (req: Request, res: Response) => {
+    try {
+        const { search } = req.query;
+        const where: Prisma.OrganizationWhereInput = {};
+        if (search) {
+            const q = String(search);
+            where.OR = [
+                { name: { contains: q, mode: 'insensitive' } },
+                { slug: { contains: q, mode: 'insensitive' } },
+            ];
+        }
+
+        const organizations = await prisma.organization.findMany({
+            where,
+            include: {
+                _count: {
+                    select: { members: true, quizzes: true, classrooms: true, matches: true, subscriptions: true },
+                },
+                subscriptions: {
+                    include: { plan: true },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+        });
+        res.json(organizations);
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+};
+
+export const getClassrooms = async (req: Request, res: Response) => {
+    try {
+        const { search, organizationId } = req.query;
+        const where: Prisma.ClassroomWhereInput = { ...orgWhere(organizationId) };
+        if (search) {
+            const q = String(search);
+            where.OR = [
+                { name: { contains: q, mode: 'insensitive' } },
+                { joinCode: { contains: q } },
+                { teacher: { username: { contains: q, mode: 'insensitive' } } },
+                { teacher: { email: { contains: q, mode: 'insensitive' } } },
+            ];
+        }
+
+        const classrooms = await prisma.classroom.findMany({
+            where,
+            include: {
+                teacher: { select: { id: true, username: true, email: true } },
+                organization: { select: { id: true, name: true, slug: true } },
+                _count: { select: { members: true, assignments: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+        });
+        res.json(classrooms);
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+};
+
+export const getHomework = async (req: Request, res: Response) => {
+    req.query.mode = 'HOMEWORK';
+    return getMatches(req, res);
+};
+
+export const getMatches = async (req: Request, res: Response) => {
+    try {
+        const { search, organizationId, mode } = req.query;
+        const where: Prisma.MatchWhereInput = { ...orgWhere(organizationId) };
+        if (mode === 'REALTIME' || mode === 'HOMEWORK') {
+            where.mode = mode as MatchMode;
+        }
+        if (search) {
+            const q = String(search);
+            where.OR = [
+                { pin: { contains: q } },
+                { quiz: { title: { contains: q, mode: 'insensitive' } } },
+                { host: { username: { contains: q, mode: 'insensitive' } } },
+            ];
+        }
+
+        const matches = await prisma.match.findMany({
+            where,
+            include: {
+                quiz: { select: { id: true, title: true } },
+                host: { select: { id: true, username: true, email: true } },
+                organization: { select: { id: true, name: true, slug: true } },
+                classroom: { select: { id: true, name: true } },
+                _count: { select: { participants: true, matchResults: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+        });
+        res.json(matches);
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+};
+
+export const getSubscriptions = async (req: Request, res: Response) => {
+    try {
+        const { organizationId, status } = req.query;
+        const where: Prisma.SubscriptionWhereInput = {};
+        const orgId = parseOptionalInt(organizationId);
+        if (orgId !== undefined) where.organizationId = orgId;
+        if (status) where.status = status as Prisma.EnumSubscriptionStatusFilter['equals'];
+
+        const subscriptions = await prisma.subscription.findMany({
+            where,
+            include: {
+                organization: { select: { id: true, name: true, slug: true } },
+                plan: { select: { id: true, name: true, type: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+        });
+        res.json(subscriptions);
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+};
+
+export const getPayments = async (req: Request, res: Response) => {
+    try {
+        const { organizationId, status } = req.query;
+        const where: Prisma.PaymentWhereInput = {};
+        const orgId = parseOptionalInt(organizationId);
+        if (orgId !== undefined) where.organizationId = orgId;
+        if (status) where.status = status as Prisma.EnumPaymentStatusFilter['equals'];
+
+        const payments = await prisma.payment.findMany({
+            where,
+            include: {
+                organization: { select: { id: true, name: true, slug: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+        });
+        res.json(payments);
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+};
+
+export const getUsageMetrics = async (req: Request, res: Response) => {
+    try {
+        const { organizationId, key } = req.query;
+        const where: Prisma.UsageMetricWhereInput = {};
+        const orgId = parseOptionalInt(organizationId);
+        if (orgId !== undefined) where.organizationId = orgId;
+        if (key) where.key = String(key);
+
+        const metrics = await prisma.usageMetric.findMany({
+            where,
+            include: {
+                organization: { select: { id: true, name: true, slug: true } },
+            },
+            orderBy: { periodStart: 'desc' },
+            take: 200,
+        });
+        res.json(metrics);
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+};
+
 export const getQuizzes = async (req: Request, res: Response) => {
     try {
-        const { search, categoryId } = req.query;
+        const { search, categoryId, organizationId } = req.query;
 
-        const where: any = {};
+        const where: Prisma.QuizWhereInput = { ...orgWhere(organizationId) };
         if (search) {
             where.OR = [
-                { title: { contains: String(search) } },
-                { creator: { username: { contains: String(search) } } }
+                { title: { contains: String(search), mode: 'insensitive' } },
+                { creator: { username: { contains: String(search), mode: 'insensitive' } } }
             ];
         }
         if (categoryId) {
@@ -23,9 +203,13 @@ export const getQuizzes = async (req: Request, res: Response) => {
 
         const quizzes = await prisma.quiz.findMany({
             where,
-            include: { creator: { select: { username: true, email: true } }, category: true },
+            include: {
+                creator: { select: { username: true, email: true } },
+                category: true,
+                organization: { select: { id: true, name: true, slug: true } },
+            },
             orderBy: { createdAt: 'desc' },
-            take: 100
+            take: 200
         });
         res.json(quizzes);
     } catch (e: any) {
@@ -78,17 +262,21 @@ export const resolveReport = async (req: Request, res: Response) => {
 
 export const getUsers = async (req: Request, res: Response) => {
     try {
-        const { search, isAdmin } = req.query;
+        const { search, isAdmin, organizationId } = req.query;
 
-        const where: any = {};
+        const where: Prisma.UserWhereInput = {};
         if (search) {
             where.OR = [
-                { username: { contains: String(search) } },
-                { email: { contains: String(search) } }
+                { username: { contains: String(search), mode: 'insensitive' } },
+                { email: { contains: String(search), mode: 'insensitive' } }
             ];
         }
         if (isAdmin !== undefined) {
             where.isAdmin = isAdmin === 'true';
+        }
+        const orgId = parseOptionalInt(organizationId);
+        if (orgId !== undefined) {
+            where.organizationMembers = { some: { organizationId: orgId } };
         }
 
         const users = await prisma.user.findMany({
@@ -100,7 +288,7 @@ export const getUsers = async (req: Request, res: Response) => {
                 }
             },
             orderBy: { createdAt: 'desc' },
-            take: 100
+            take: 200
         });
         res.json(users);
     } catch (e: any) {
@@ -108,19 +296,77 @@ export const getUsers = async (req: Request, res: Response) => {
     }
 };
 
+/** PUT /admin/users/:id/admin — grant or revoke platform admin (staff) access. */
+export const setUserAdmin = async (req: Request, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        const { isAdmin } = req.body as { isAdmin?: unknown };
+
+        if (Number.isNaN(id)) {
+            res.status(400).json({ message: 'Invalid user id' });
+            return;
+        }
+        if (typeof isAdmin !== 'boolean') {
+            res.status(400).json({ message: 'isAdmin must be a boolean' });
+            return;
+        }
+
+        const target = await prisma.user.findUnique({
+            where: { id },
+            select: { id: true, isAdmin: true },
+        });
+        if (!target) {
+            res.status(404).json({ message: 'User not found' });
+            return;
+        }
+
+        const actorId = Number(req.userId);
+        if (actorId === id && !isAdmin) {
+            res.status(400).json({ message: 'You cannot remove your own admin access' });
+            return;
+        }
+
+        if (target.isAdmin && !isAdmin) {
+            const adminCount = await prisma.user.count({ where: { isAdmin: true } });
+            if (adminCount <= 1) {
+                res.status(400).json({ message: 'Cannot remove the last platform admin' });
+                return;
+            }
+        }
+
+        const updated = await prisma.user.update({
+            where: { id },
+            data: { isAdmin },
+            select: {
+                id: true,
+                username: true,
+                email: true,
+                isAdmin: true,
+                createdAt: true,
+            },
+        });
+        res.json(updated);
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+};
+
 export const getAIJobs = async (req: Request, res: Response) => {
     try {
-        const { status, userId } = req.query;
+        const { status, userId, organizationId } = req.query;
 
-        const where: any = {};
-        if (status) where.status = status;
+        const where: Prisma.AIGenerationJobWhereInput = { ...orgWhere(organizationId) };
+        if (status) where.status = status as Prisma.EnumAIGenerationStatusFilter['equals'];
         if (userId) where.userId = Number(userId);
 
         const jobs = await prisma.aIGenerationJob.findMany({
             where,
-            include: { user: { select: { username: true, email: true } } },
+            include: {
+                user: { select: { username: true, email: true } },
+                organization: { select: { id: true, name: true, slug: true } },
+            },
             orderBy: { createdAt: 'desc' },
-            take: 100
+            take: 200
         });
         res.json(jobs);
     } catch (e: any) {

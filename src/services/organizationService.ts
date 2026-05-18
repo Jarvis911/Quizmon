@@ -81,6 +81,10 @@ export const getOrganizations = async (userId: number) => {
             members: { some: { userId } },
         },
         include: {
+            members: {
+                where: { userId },
+                select: { role: true },
+            },
             _count: { select: { members: true, quizzes: true, classrooms: true } },
             subscriptions: {
                 where: { status: 'ACTIVE' },

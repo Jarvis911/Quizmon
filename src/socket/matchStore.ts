@@ -12,6 +12,43 @@ const MATCHES_SET_KEY = 'active_matches';
 export const matchIntervals = new Map<string, ReturnType<typeof setInterval>>();
 
 /**
+ * Local memory store for the *fresh* remaining time of a match.
+ * Redis is only synced every 1s for performance, so when a player submits an
+ * answer the value in Redis can be up to ~1s stale. We use this in-memory map
+ * to award points based on the same value as the server's 100ms scoring tick
+ * (clients receive `timeUpdate` less often and interpolate locally).
+ */
+export const matchRemainingTimes = new Map<string, number>();
+
+/**
+ * Tracks which question IDs already had `processTimeUp` run for a given match.
+ * Prevents the race where the question timer hits 0 at the same moment the
+ * last player submits — both paths would otherwise call `processTimeUp`,
+ * causing double-awarded points, duplicate answerResult events, and a
+ * double-increment of `currentQuestionIndex` (skipping a question).
+ */
+export const matchProcessedQuestions = new Map<string, Set<number>>();
+
+/**
+ * In-process pause flag mirrored from Redis when the host toggles pause.
+ * Lets the question timer avoid a Redis GET on every tick; scoring still uses
+ * Redis-backed state for persistence. Not shared across Node workers.
+ */
+const matchTimerPauseSync = new Map<string, boolean>();
+
+export function setMatchTimerPause(matchId: string | number, isPaused: boolean): void {
+    matchTimerPauseSync.set(String(matchId), isPaused);
+}
+
+export function getMatchTimerPause(matchId: string | number): boolean {
+    return matchTimerPauseSync.get(String(matchId)) ?? false;
+}
+
+export function clearMatchTimerPause(matchId: string | number): void {
+    matchTimerPauseSync.delete(String(matchId));
+}
+
+/**
  * Per-match async mutex.
  * Serializes concurrent operations on the same match to prevent
  * "Read-Modify-Write" race conditions (e.g. two players submitting simultaneously).
@@ -116,11 +153,15 @@ export async function deleteMatch(matchId: string | number): Promise<void> {
     await redisClient.sRem(MATCHES_SET_KEY, String(matchId));
 
     // Clean up local interval if exists
-    const interval = matchIntervals.get(String(matchId));
+    const key = String(matchId);
+    const interval = matchIntervals.get(key);
     if (interval) {
         clearInterval(interval);
-        matchIntervals.delete(String(matchId));
+        matchIntervals.delete(key);
     }
+    matchRemainingTimes.delete(key);
+    matchProcessedQuestions.delete(key);
+    matchTimerPauseSync.delete(key);
 }
 
 /**

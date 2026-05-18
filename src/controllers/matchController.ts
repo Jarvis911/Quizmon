@@ -142,7 +142,9 @@ export const getMatch = async (req: Request, res: Response): Promise<void> => {
                     },
                     host: { select: { id: true, username: true } },
                     participants: { include: { user: { select: { id: true, username: true } } } },
-                    matchResults: true,
+                    matchResults: {
+                        include: { user: { select: { id: true, username: true } } },
+                    },
                 },
             });
             res.status(200).json(match);
@@ -171,7 +173,9 @@ export const getMatch = async (req: Request, res: Response): Promise<void> => {
                     },
                     host: { select: { id: true, username: true } },
                     participants: { include: { user: { select: { id: true, username: true } } } },
-                    matchResults: true,
+                    matchResults: {
+                        include: { user: { select: { id: true, username: true } } },
+                    },
                 },
             });
             res.status(200).json(match);

@@ -15,6 +15,11 @@ import {
 } from '../services/organizationService.js';
 import { getOrgFeatures as getOrgFeaturesService } from '../services/featureGateService.js';
 import { getUsage } from '../services/usageService.js';
+import {
+    userCanCreateAdditionalOrganization,
+    organizationHasTeamCollaboration,
+    TEAM_COLLABORATION_FORBIDDEN_MESSAGE,
+} from '../services/organizationTeamPlanService.js';
 
 // ——— Authorization helper ———
 
@@ -32,6 +37,12 @@ export const createOrg = async (req: Request, res: Response): Promise<void> => {
 
         if (!name?.trim()) {
             res.status(400).json({ message: 'Organization name is required' });
+            return;
+        }
+
+        const allowed = await userCanCreateAdditionalOrganization(Number(userId));
+        if (!allowed) {
+            res.status(403).json({ message: TEAM_COLLABORATION_FORBIDDEN_MESSAGE });
             return;
         }
 
@@ -124,6 +135,11 @@ export const addOrgMember = async (req: Request, res: Response): Promise<void> =
             return;
         }
 
+        if (!(await organizationHasTeamCollaboration(Number(id)))) {
+            res.status(403).json({ message: TEAM_COLLABORATION_FORBIDDEN_MESSAGE });
+            return;
+        }
+
         let targetUserId = bodyUserId;
 
         // If email or username is provided, find the user
@@ -170,6 +186,11 @@ export const removeOrgMember = async (req: Request, res: Response): Promise<void
             return;
         }
 
+        if (!(await organizationHasTeamCollaboration(Number(id)))) {
+            res.status(403).json({ message: TEAM_COLLABORATION_FORBIDDEN_MESSAGE });
+            return;
+        }
+
         await removeMember(Number(id), Number(targetUserId));
         res.status(200).json({ message: 'Member removed successfully' });
     } catch (err) {
@@ -194,6 +215,11 @@ export const updateOrgMemberRole = async (req: Request, res: Response): Promise<
             return;
         }
 
+        if (!(await organizationHasTeamCollaboration(Number(id)))) {
+            res.status(403).json({ message: TEAM_COLLABORATION_FORBIDDEN_MESSAGE });
+            return;
+        }
+
         const member = await updateMemberRole(Number(id), Number(targetUserId), role);
         res.status(200).json(member);
     } catch (err) {
@@ -209,9 +235,26 @@ export const updateOrgMemberRole = async (req: Request, res: Response): Promise<
 
 export const searchOrgUsers = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { query } = req.query as { query?: string };
+        const { query, organizationId: orgIdQuery } = req.query as { query?: string; organizationId?: string };
+        if (!orgIdQuery || Number.isNaN(Number(orgIdQuery))) {
+            res.status(400).json({ message: 'organizationId is required' });
+            return;
+        }
+        const orgId = Number(orgIdQuery);
+
         if (!query || query.length < 2) {
             res.status(200).json([]);
+            return;
+        }
+
+        const role = await getMemberRole(orgId, Number(req.userId));
+        if (!role) {
+            res.status(403).json({ message: 'Access denied' });
+            return;
+        }
+
+        if (!(await organizationHasTeamCollaboration(orgId))) {
+            res.status(403).json({ message: TEAM_COLLABORATION_FORBIDDEN_MESSAGE });
             return;
         }
 

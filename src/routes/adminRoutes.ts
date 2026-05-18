@@ -10,7 +10,16 @@ const router: Router = Router();
 router.use(authMiddleware);
 router.use(adminMiddleware);
 
+router.get('/organizations', adminController.getOrganizations);
+router.get('/classrooms', adminController.getClassrooms);
+router.get('/matches', adminController.getMatches);
+router.get('/homework', adminController.getHomework);
+router.get('/subscriptions', adminController.getSubscriptions);
+router.get('/payments', adminController.getPayments);
+router.get('/usage-metrics', adminController.getUsageMetrics);
+
 router.get('/users', adminController.getUsers);
+router.put('/users/:id/admin', adminController.setUserAdmin);
 router.get('/quizzes', adminController.getQuizzes);
 router.delete('/quizzes/:id', adminController.deleteQuiz);
 router.get('/reports', adminController.getReports);

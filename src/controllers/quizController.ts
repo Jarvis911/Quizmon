@@ -4,6 +4,10 @@ import prisma from '../prismaClient.js';
 import { deleteQuizCascade } from '../services/deleteQuizCascade.js';
 import { notificationService } from '../services/notificationService.js';
 import { OrganizationRole } from '@prisma/client';
+import {
+    organizationHasTeamCollaboration,
+    TEAM_COLLABORATION_FORBIDDEN_MESSAGE,
+} from '../services/organizationTeamPlanService.js';
 
 const QUIZ_MANAGER_ROLES: OrganizationRole[] = [
     OrganizationRole.OWNER,
@@ -457,6 +461,11 @@ export const getOrgQuizzes = async (req: Request, res: Response): Promise<void> 
             return;
         }
 
+        if (!(await organizationHasTeamCollaboration(orgId))) {
+            res.status(403).json({ message: TEAM_COLLABORATION_FORBIDDEN_MESSAGE });
+            return;
+        }
+
         const data = await prisma.quiz.findMany({
             where: { organizationId: orgId },
             orderBy: { updatedAt: 'desc' },
@@ -566,6 +575,11 @@ export const assignQuizToOrg = async (req: Request, res: Response): Promise<void
     try {
         if (!orgId) {
             res.status(400).json({ message: 'Organization context required' });
+            return;
+        }
+
+        if (!(await organizationHasTeamCollaboration(orgId))) {
+            res.status(403).json({ message: TEAM_COLLABORATION_FORBIDDEN_MESSAGE });
             return;
         }
 
@@ -800,6 +814,11 @@ export const getAssignableQuizzes = async (req: Request, res: Response): Promise
         const orgId = req.organizationId;
         if (!orgId) {
             res.status(400).json({ message: 'Organization context required' });
+            return;
+        }
+
+        if (!(await organizationHasTeamCollaboration(orgId))) {
+            res.status(403).json({ message: TEAM_COLLABORATION_FORBIDDEN_MESSAGE });
             return;
         }
 

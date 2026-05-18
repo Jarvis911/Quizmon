@@ -1,6 +1,6 @@
 import { Server } from 'socket.io';
 import { CustomSocket } from '../types.js';
-import { getMatch, updateMatchState } from '../matchStore.js';
+import { getMatch, updateMatchState, setMatchTimerPause } from '../matchStore.js';
 import { MatchState } from '../types.js';
 
 export function handleTogglePause(io: Server, socket: CustomSocket) {
@@ -26,6 +26,8 @@ export function handleTogglePause(io: Server, socket: CustomSocket) {
         });
 
         if (!updatedState) return;
+
+        setMatchTimerPause(matchId, updatedState.isPaused);
 
         console.log(`Match ${matchId} pause status: ${updatedState.isPaused}`);
 
